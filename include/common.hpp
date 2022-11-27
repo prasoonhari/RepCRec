@@ -1,17 +1,29 @@
+#ifndef COMMON
+#define COMMON
+
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 enum CMD_TYPE
 {
-    begin,
-    beginRO,
-    W,
-    R,
-    fail,
-    recover,
-    dump,
-    end
+    begin = 2,
+    beginRO = 4,
+    W= 8,
+    R= 16,
+    fail= 32,
+    recover= 64,
+    dump = 128,
+    end = 256
 };
+
+enum INST_TYPE
+{
+    Read,
+    Write
+};
+
+
 
 static std::unordered_map<std::string, CMD_TYPE> const cmdTable = {
     {"begin", CMD_TYPE::begin},
@@ -23,3 +35,14 @@ static std::unordered_map<std::string, CMD_TYPE> const cmdTable = {
     {"dump", CMD_TYPE::dump},
     {"end", CMD_TYPE::end},
 };
+
+struct Operation
+{
+    CMD_TYPE type;
+    std::vector<std::string> vars;
+};
+
+
+
+
+#endif
