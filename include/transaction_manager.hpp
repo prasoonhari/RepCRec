@@ -5,6 +5,7 @@
 #include <set>
 #include <unordered_map>
 #include <map>
+#include <deque>
 #include "common.hpp"
 #include "data_manager.hpp"
 
@@ -14,6 +15,7 @@ struct SiteDetail
     DataManager* dm;
     SITE_STATUS status;
     int lastStatusChangeTime;
+    int lastFailureTime;
 };
 
 

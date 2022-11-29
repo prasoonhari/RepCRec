@@ -4,8 +4,10 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <map>
 #include <list>
 #include <utility>
+#include <deque>
 
 enum CMD_TYPE
 {
@@ -66,9 +68,11 @@ struct LockDetail
 {
     LOCK_TYPE lock_type;
     // transcation and the time it started holding the lock
-    std::list<std::pair<int, int>> currentHolder;
+    std::map<int , std::deque<int>::iterator> currentHolderMap;
+    std::deque<int> currentHolderQueue;
     // waiting tranasactions
-    std::list<int> waitingQueue;
+    std::map<int , std::deque<int>::iterator> waitingMap;
+    std::deque<int> waitingQueue;
 };
 
 

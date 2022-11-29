@@ -99,7 +99,7 @@ OperationResult TransactionManager::read(Operation Op, int time)
             //TODO: add check for site failure between last commit and Txn start 
             else if (variableMap[variable_id].size() != 1 &&
             transactions[txn_id].startTime > siteMap[var_site].dm->getLastCommittedTime(variable_id)){
-
+                
             }
 
         }
