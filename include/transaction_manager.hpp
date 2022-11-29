@@ -9,10 +9,10 @@
 
 enum T_STATUS
 {
-    commited,
-    aborted,
-    waiting,
-    running
+    t_commited,
+    t_aborted,
+    t_waiting,
+    t_running
 };
 
 struct Transaction
@@ -36,12 +36,11 @@ private:
     DataManager* dataManager;
     
 public:
-    void initializeDataManager(DataManager& dm);
     TransactionManager();
     void printTM();
     void begin(Operation O, int time);
     void beginRO(Operation O, int time);
-    // void read(Operation O);
+    void read(Operation O, int time);
     // void write(Operation O);
     // void end(Operation O);
     // void fails(Operation O);

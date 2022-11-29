@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <list>
+#include <utility>
 
 enum CMD_TYPE
 {
@@ -43,6 +45,19 @@ struct Operation
 };
 
 
+enum LOCK_TYPE
+{
+    read = 2,
+    write = 4,
+};
 
+struct LockDetail
+{
+    LOCK_TYPE lock_type;
+    // transcation and the time it started holding the lock
+    std::list<std::pair<int, int>> currentHolder;
+    // waiting tranasactions
+    std::list<int> waitingQueue;
+};
 
 #endif
