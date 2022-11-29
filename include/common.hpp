@@ -101,5 +101,14 @@ struct Transaction
     Instruction currentInstruction;
 };
 
+struct DataDetail
+{
+    int currentValue;
+    int committedValue;
+    int lastCommitTime;
+};
+
+
+
 
 #endif

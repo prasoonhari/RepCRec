@@ -12,9 +12,10 @@ class LockManager
 private:
     // lock detail on each variable. variable_id -> lock details
     std::map<int, LockDetail> lock_table;
+    int lm_id;
 
 public:
-    LockManager();
+    LockManager(int _lm_id);
     void reset();
     void initializeLock(int variable);
     // returns 1 if successful, 2 if in waiting else 0 if fails

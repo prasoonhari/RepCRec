@@ -3,8 +3,9 @@
 #include "lock_manager.hpp"
 using namespace std;
 
-LockManager::LockManager()
+LockManager::LockManager(int _lm_id)
 {
+    lm_id = _lm_id;
     lock_table = {};
 }
 

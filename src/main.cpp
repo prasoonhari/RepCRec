@@ -56,27 +56,31 @@ int main(int argc, const char *argv[])
 
     // DataManager dataManager;
     // initializeDataManager(dataManager);
-    TransactionManager trasactionManager;
+    TransactionManager* tm = new TransactionManager();
+    tm->initializeDB();
 
     string inputCommand;
     int time = 0;
     while (cin >> inputCommand)
     {
         time++;
+        OperationResult OptRes;
         Operation operation = parseCommand(inputCommand);
         switch (operation.type)
         {
-        case 2:
-            trasactionManager.begin(operation, time);
+        case CMD_TYPE::begin:
+            tm->begin(operation, time);
             break;
-        case 4:
-            trasactionManager.beginRO(operation, time);
+        case CMD_TYPE::beginRO:
+            tm->beginRO(operation, time);
             break;
-        case 8:
+        case CMD_TYPE::W:
             /* code */
             break;
-        case 16:
+        case CMD_TYPE::R:
             /* code */
+            OptRes = tm->read(operation, time);
+            cout << OptRes.msg << "\n";
             break;
         case 32:
             /* code */
@@ -95,5 +99,5 @@ int main(int argc, const char *argv[])
         }
     }
 
-    trasactionManager.printTM();
+    tm->printTM();
 }
