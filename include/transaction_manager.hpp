@@ -25,6 +25,9 @@ class TransactionManager
 private:
     // all the transaction details
     std::map<int, Transaction> transactions;
+
+    // blocked transaction queue
+    std::deque<int> blockedTransactions;
     // An instance of data manager
     std::map<int, SiteDetail> siteMap;
     // variable and the sites they are present
@@ -37,7 +40,7 @@ public:
     void begin(Operation O, int time);
     void beginRO(Operation O, int time);
     OperationResult read(Operation O, int time);
-    // void write(Operation O);
+    void write(Operation O,  int time);
     // void end(Operation O);
     // void fails(Operation O);
     // void recover(Operation O);

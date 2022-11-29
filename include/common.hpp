@@ -60,8 +60,8 @@ enum SITE_STATUS
 
 enum LOCK_TYPE
 {
-    read = 2,
-    write = 4,
+    l_read = 2,
+    l_write = 4,
 };
 
 struct LockDetail
@@ -90,7 +90,7 @@ struct OperationResult {
 
 enum T_STATUS
 {
-    t_commited,
+    t_committed,
     t_aborted,
     t_waiting,
     t_running

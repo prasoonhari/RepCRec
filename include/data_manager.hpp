@@ -19,8 +19,14 @@ private:
     std::map<int, DataDetail> data;
     // Lock Manager instance that holds locks for the site
     LockManager* lm;
-    //the variables that are not commited after recovering
+    //the variables that are not committed after recovering
     std::set<int> unclean_data_on_site;
+
+    //map of the transaction and the variables it has changed
+    // gets updated when any write happens
+    // make modification to data if commit else make it same as last committed value if aborting
+    // TODO: remove items from it when committed or aborted
+    std::map<int, std::vector<int>> txn_changed_variables;
 
 
 
@@ -31,8 +37,14 @@ public:
     void printDM();
     OperationResult read( int variable, Transaction txn);
     int readRO( int variable, Transaction txn);
-    bool checkIfDataRecoved(int variable);
+    bool checkIfDataRecovered(int variable);
     int getLastCommittedTime(int variable);
+
+    int getReadLockStatus(int variable, Transaction txn);
+
+    int getWriteLockStatus(int variable, Transaction txn);
+
+    OperationResult write(int variable, Transaction txn);
 };
 
 #endif
