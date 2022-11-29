@@ -15,6 +15,7 @@ private:
 
 public:
     LockManager();
+    void reset();
     void initializeLock(int variable);
     // returns 1 if successful, 2 if in waiting else 0 if fails
     int getReadLock(int variable, int transaction_id);

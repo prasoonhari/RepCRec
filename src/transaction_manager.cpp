@@ -24,9 +24,9 @@ void TransactionManager::printTM()
 {
     for (auto itr = transactions.begin(); itr != transactions.end(); itr++)
     {
-        cout << "T" << (*itr).id << ": StartTime = " << (*itr).startTime << " "
-             << ": ReadOnly = " << (*itr).ReadOnly << " "
-             << ": status = " << (*itr).status << " ";
+        cout << "T" << (*itr).second.id << ": StartTime = " << (*itr).second.startTime << " "
+             << ": ReadOnly = " << (*itr).second.ReadOnly << " "
+             << ": status = " << (*itr).second.status << " ";
         cout << endl;
     }
    
@@ -39,7 +39,7 @@ void TransactionManager::begin(Operation Op, int time)
     txn.startTime = time;
     txn.ReadOnly = false;
     txn.status = t_running;
-    transactions.insert(txn);
+    transactions[txn.id]= txn;
 }
 
 void TransactionManager::beginRO(Operation Op, int time)
@@ -49,12 +49,15 @@ void TransactionManager::beginRO(Operation Op, int time)
     txn.startTime = time;
     txn.ReadOnly = true;
     txn.status = t_running;
-    transactions.insert(txn);
+    transactions[txn.id]= txn;
 }
 
-void TransactionManager::read(Operation Op, int time)
+OperationResult TransactionManager::read(Operation Op, int time)
 {
     int txn_id = extractId(Op.vars[0]);
     int variable_id = extractId(Op.vars[1]);
+    transactions[txn_id].currentInstruction.type = INST_TYPE::Read;
+    transactions[txn_id].currentInstruction.values = {variable_id};
+
   
 }

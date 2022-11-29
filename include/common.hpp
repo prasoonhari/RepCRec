@@ -25,6 +25,11 @@ enum INST_TYPE
     Write
 };
 
+struct Instruction
+{
+    INST_TYPE type;
+    std::vector<int> values;
+};
 
 
 static std::unordered_map<std::string, CMD_TYPE> const cmdTable = {
@@ -44,6 +49,12 @@ struct Operation
     std::vector<std::string> vars;
 };
 
+enum SITE_STATUS
+{
+    down = 4,
+    up = 2,
+    recovering= 8,
+};
 
 enum LOCK_TYPE
 {
@@ -59,5 +70,36 @@ struct LockDetail
     // waiting tranasactions
     std::list<int> waitingQueue;
 };
+
+
+enum RESULT_STATUS
+{
+    success = 2,
+    failure = 4
+};
+
+struct OperationResult {
+    RESULT_STATUS status;
+    std::string msg;
+};
+
+
+enum T_STATUS
+{
+    t_commited,
+    t_aborted,
+    t_waiting,
+    t_running
+};
+
+struct Transaction
+{
+    int id;
+    int startTime;
+    bool ReadOnly;
+    T_STATUS status;
+    Instruction currentInstruction;
+};
+
 
 #endif
