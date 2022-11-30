@@ -98,6 +98,7 @@ enum T_STATUS
 {
     t_committed,
     t_aborted,
+    t_blocked,
     t_waiting,
     t_running
 };

@@ -34,13 +34,14 @@ private:
     // sites -> txns
     std::map<int, std::vector<int>> transactionWaitingForSite;
 
-    std::map<int, std::vector<int>> transaction_wait_table;
+    std::map<int, std::vector<int>> transactionDependency;
 
 
 public:
     TransactionManager();
     void initializeDB();
     void printTM();
+    std::pair<bool, std::vector<int>> isWritePossible(int variable, Transaction *currentTxn);
     void begin(Operation O, int time);
     void beginRO(Operation O, int time);
     OperationResult read(Operation O, int time);
@@ -52,7 +53,8 @@ public:
 
     void isWritePossible(int variable);
 
-    std::pair<bool, std::vector<int>> isWritePossible(int variable, Transaction *currentTxn);
+
+    void printDump();
 };
 
 #endif

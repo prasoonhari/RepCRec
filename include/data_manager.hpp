@@ -35,6 +35,7 @@ public:
     void initializeDataManager();
     void setData(int variable, int value, int commit_time);
     void printDM();
+    std::pair<int, std::vector<int>> writeCheck(int variable, Transaction *txn);
     int readRO( int variable, Transaction txn);
     bool checkIfDataRecovered(int variable);
     int getLastCommittedTime(int variable);
@@ -43,7 +44,7 @@ public:
 
     int getWriteLockStatus(int variable, Transaction txn);
 
-    TransactionResult write(int variable, Transaction *txn);
+    TransactionResult write(int variable, Transaction *txn, int change_time);
 
     void setDataCommit(int variable, int value, int commit_time);
 
@@ -51,7 +52,10 @@ public:
 
     TransactionResult read(int variable, Transaction *txn);
 
-    TransactionResult writeCheck(int variable, Transaction *txn);
+
+    bool checkReadLockCondition(LockDetail varLockDetail, int txn_Id);
+
+    bool checkWriteLockCondition(LockDetail varLockDetail, int txn_Id);
 };
 
 #endif

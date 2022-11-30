@@ -65,7 +65,7 @@ Transaction *TransactionManager::getTransactionFromOperation(Operation Op) {
     } else if (Op.type == CMD_TYPE::W) {
         int txn_id = extractId(Op.vars[0]);
         int variable_id = extractId(Op.vars[1]);
-        int variable_value = extractId(Op.vars[2]);
+        int variable_value = stoi(Op.vars[2]);
         transactions[txn_id].currentInstruction.type = INST_TYPE::Write;
         transactions[txn_id].currentInstruction.values = {variable_id, variable_value};
         return &transactions[txn_id];
@@ -97,6 +97,12 @@ void TransactionManager::beginRO(Operation Op, int time) {
     transactions[txn.id] = txn;
 }
 
+void TransactionManager::printDump() {
+    for (auto site : siteMap){
+        site.second.dm->printDM();
+    }
+}
+
 OperationResult TransactionManager::read(Operation Op, int time) {
 
 
@@ -124,18 +130,22 @@ OperationResult TransactionManager::read(Operation Op, int time) {
                     OperRes.status = RESULT_STATUS::success;
                     return OperRes;
                 } else {
+
+                    OperRes.status = RESULT_STATUS::failure;
+                    currentTxn->status = T_STATUS::t_blocked;
+                    OperRes.msg = "Not able to Read Now in waiting";
+
                     if (transactionWaiting.find(variable_id) == transactionWaiting.end()) {
                         transactionWaiting[variable_id] = {currentTxn->id};
                     } else {
                         transactionWaiting[variable_id].push_back(currentTxn->id);
                     }
-                    if (transaction_wait_table.find(currentTxn->id) == transactionWaiting.end()) {
-                        transactionWaiting[currentTxn->id] = {txnRes.transactions[0]};
+                    if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
+                        transactionDependency[currentTxn->id] = {txnRes.transactions[0]};
                     } else {
-                        transactionWaiting[currentTxn->id].push_back(txnRes.transactions[0]);
+                        transactionDependency[currentTxn->id].push_back(txnRes.transactions[0]);
                     }
-                    OperRes.status = RESULT_STATUS::failure;
-                    OperRes.msg = "Not able to Read Now in waiting";
+
                     return OperRes;
                 }
             }
@@ -149,13 +159,25 @@ OperationResult TransactionManager::read(Operation Op, int time) {
     }
 }
 
-
-pair<bool, vector<int>> TransactionManager::isWritePossible(int variable, Transaction *currentTxn){
-    vector<int> blockingTransaction;
+// Checks if all locks are available to complete the write
+// If not then it return the Txn's that are blocking the write
+pair<bool, vector<int>> TransactionManager::isWritePossible(int variable, Transaction *currentTxn) {
+    set<int> blockingTransaction;
     for (auto var_site: variableMap[variable]) {
-        if (siteMap[var_site].status == SITE_STATUS::up){
-            TransactionResult txnRes = siteMap[var_site].dm->writeCheck(variable, currentTxn);
+        if (siteMap[var_site].status == SITE_STATUS::up) {
+            pair<int, vector<int>> writeCheck = siteMap[var_site].dm->writeCheck(variable, currentTxn);
+            if (writeCheck.first == 0) {
+                return {false, writeCheck.second};
+            } else if (writeCheck.first == 1) {
+                set<int> s(writeCheck.second.begin(), writeCheck.second.end());
+                blockingTransaction.insert(s.begin(), s.end());
+            }
         }
+    }
+    if (blockingTransaction.empty()) {
+        return {true, {}};
+    } else {
+        return {false, {}};
     }
 }
 
@@ -166,14 +188,60 @@ OperationResult TransactionManager::write(Operation Op, int time) {
     Transaction *currentTxn = getTransactionFromOperation(Op);
     int variable_id = currentTxn->currentInstruction.values[0];
     // If transaction is read-only
+
+    vector<int> UpdatableSites;
     for (auto var_site: variableMap[variable_id]) {
+        if (siteMap[var_site].status == SITE_STATUS::up) {
+            UpdatableSites.push_back(var_site);
+        }
+    }
+    if (UpdatableSites.empty()) {
+        // No site found to write
+        currentTxn->status = T_STATUS::t_waiting;
+        OperRes.status = RESULT_STATUS::failure;
+        OperRes.msg = "No Site Available to Write";
+        return OperRes;
     }
 
-    // No site found to read from thus txn is blocked now
-    currentTxn->status = T_STATUS::t_waiting;
-    OperRes.status = RESULT_STATUS::failure;
-    OperRes.msg = "No Site Available to Read";
-    return OperRes;
+    pair<bool, vector<int>> isWritePossibleRes = isWritePossible(variable_id, currentTxn);
+
+
+    if (isWritePossibleRes.first) {
+        for (auto var_site: variableMap[variable_id]) {
+            if (siteMap[var_site].status == SITE_STATUS::up) {
+                siteMap[var_site].dm->write(variable_id, currentTxn, time);
+            }
+            if (currentTxn->dirtyData.find(var_site) == currentTxn->dirtyData.end()) {
+                // empty because it's a read data so won't get dirty
+                currentTxn->dirtyData[var_site] = {variable_id};
+            } else {
+                currentTxn->dirtyData[var_site].push_back(variable_id);
+            }
+        }
+
+        OperRes.status = RESULT_STATUS::success;
+        return OperRes;
+    } else {
+
+        OperRes.status = RESULT_STATUS::failure;
+        currentTxn->status = T_STATUS::t_blocked;
+        OperRes.msg = "Not able to Read Now in waiting";
+
+        if (transactionWaiting.find(variable_id) == transactionWaiting.end()) {
+            transactionWaiting[variable_id] = {currentTxn->id};
+        } else {
+            transactionWaiting[variable_id].push_back(currentTxn->id);
+        }
+        if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
+            transactionDependency[currentTxn->id] = {isWritePossibleRes.second};
+        } else {
+            transactionDependency[currentTxn->id].insert(transactionWaiting[currentTxn->id].end(),
+                                                      isWritePossibleRes.second.begin(),
+                                                      isWritePossibleRes.second.end());
+        }
+        return OperRes;
+    }
 }
+
 
 

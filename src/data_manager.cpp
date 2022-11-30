@@ -33,13 +33,23 @@ void DataManager::setData(int variable, int value, int commit_time) {
     data[variable] = {value, value, commit_time};
 }
 
+bool DataManager::checkReadLockCondition(LockDetail varLockDetail, int txn_Id) {
+    return varLockDetail.lock_type == LOCK_TYPE::l_read || (varLockDetail.lock_type == LOCK_TYPE::l_write &&
+                                                            varLockDetail.currentHolderMap.find(txn_Id) !=
+                                                            varLockDetail.currentHolderMap.end());
+}
+
+bool DataManager::checkWriteLockCondition(LockDetail varLockDetail, int txn_Id) {
+    return (varLockDetail.lock_type == LOCK_TYPE::l_read && varLockDetail.currentHolderMap.size() <= 1) ||
+           (varLockDetail.lock_type == LOCK_TYPE::l_write &&
+            varLockDetail.currentHolderMap.find(txn_Id) != varLockDetail.currentHolderMap.end());
+}
+
 
 TransactionResult DataManager::read(int variable, Transaction *txn) {
     TransactionResult txnRes;
     LockDetail varLockDetail = lm->getLockDetail(variable);
-    if (varLockDetail.lock_type == LOCK_TYPE::l_read || (varLockDetail.lock_type == LOCK_TYPE::l_write &&
-                                                         varLockDetail.currentHolderMap.find(txn->id) !=
-                                                         varLockDetail.currentHolderMap.end())) {
+    if (checkReadLockCondition(varLockDetail, txn->id)) {
         txnRes.status = RESULT_STATUS::success;
         bool lockAcquired = lm->acquireReadLock(variable, txn->id);
         if (!lockAcquired) {
@@ -54,18 +64,39 @@ TransactionResult DataManager::read(int variable, Transaction *txn) {
     return txnRes;
 }
 
-TransactionResult DataManager::writeCheck(int variable, Transaction *txn) {
-    TransactionResult txnRes;
+// 0 - write lock is waiting, 1 - read lock waiting, 2 - success no lock waiting
+pair<int, vector<int>> DataManager::writeCheck(int variable, Transaction *txn) {
     LockDetail varLockDetail = lm->getLockDetail(variable);
-    if ((varLockDetail.lock_type == LOCK_TYPE::l_read && varLockDetail.currentHolderMap.size() == 1) ||
-        (varLockDetail.lock_type == LOCK_TYPE::l_write &&
-         varLockDetail.currentHolderMap.find(txn->id) != varLockDetail.currentHolderMap.end())) {
+    if (checkWriteLockCondition(varLockDetail, txn->id)) {
+        return {2, {}};
 
-        txnRes.status = RESULT_STATUS::success;
+    } else if (varLockDetail.lock_type == LOCK_TYPE::l_write && varLockDetail.currentHolderMap.size() == 1) {
+        return {0, vector<int>({varLockDetail.currentHolderQueue.begin(), varLockDetail.currentHolderQueue.end()})};
+    } else if (varLockDetail.lock_type == LOCK_TYPE::l_read && !varLockDetail.currentHolderMap.empty()) {
+        return {1, vector<int>({varLockDetail.currentHolderQueue.begin(), varLockDetail.currentHolderQueue.end()})};
+    }
+    return {-1, {}};;
+}
 
+
+// Write the data into the database (data map) temporarily
+TransactionResult DataManager::write(int variable, Transaction *txn, int change_time) {
+    LockDetail varLockDetail = lm->getLockDetail(variable);
+    TransactionResult txnRes;
+    if (checkWriteLockCondition(varLockDetail, txn->id)) {
+        // acquire the right lock
+        bool lockAcquired = lm->acquireWriteLock(variable, txn->id);
+
+        if (!lockAcquired) {
+            cout << "fail to acquire lock - something went wrong";
+        } else {
+            setDataTemp(variable, txn->currentInstruction.values[1]);
+            txnRes.status = RESULT_STATUS::success;
+        }
     } else {
         txnRes.status = RESULT_STATUS::failure;
-        txnRes.transactions = varLockDetail.currentHolderQueue;
+        cout << "Something went wrong while writing the data \n";
+        return txnRes;
     }
     return txnRes;
 }
@@ -76,9 +107,11 @@ bool DataManager::checkIfDataRecovered(int variable) {
 }
 
 void DataManager::printDM() {
-
+    cout << "Data Printing for site" << site_id << " Starts \n";
     for (auto itt = data.begin(); itt != data.end(); itt++) {
-        cout << "x" << itt->first << ": " << itt->second.committedValue << ", ";
+        cout << "x" << itt->first << ": " << itt->second.committedValue << ", tempVal = " << itt->second.currentValue
+             << ", last commit time = " << itt->second.lastCommitTime << " \n";
     }
+    cout << "Data Printing for site " << site_id << " Ends \n";
     cout << "\n";
 }

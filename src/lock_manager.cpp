@@ -72,7 +72,7 @@ bool LockManager::acquireReadLock(int variable, int transaction_id) {
     return false;
 }
 
-int LockManager::getWriteLock(int variable, int transaction_id) {
+bool LockManager::acquireWriteLock(int variable, int transaction_id) {
     if (lock_table[variable].currentHolderQueue.empty()) {
         lock_table[variable].lock_type = LOCK_TYPE::l_write;
 
@@ -81,7 +81,7 @@ int LockManager::getWriteLock(int variable, int transaction_id) {
             lock_table[variable].currentHolderQueue.push_back(transaction_id);
             lock_table[variable].currentHolderMap[transaction_id] = prev(lock_table[variable].currentHolderQueue.end());
         }
-        return 1;
+        return true;
 
     }
         // only one transaction holds the lock and that is itself, if it holds read lock then that will be promoted while acquiring the lock
@@ -90,7 +90,7 @@ int LockManager::getWriteLock(int variable, int transaction_id) {
              lock_table[variable].currentHolderMap.end()) {
         // promote to write if not
         lock_table[variable].lock_type = LOCK_TYPE::l_write;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
