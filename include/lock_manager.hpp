@@ -19,11 +19,13 @@ public:
     void reset();
     void initializeLock(int variable);
     // returns 1 if successful, 2 if in waiting else 0 if fails
-    int getReadLock(int variable, int transaction_id);
+    bool acquireReadLock(int variable, int transaction_id);
     int getWriteLock(int variable, int transaction_id);
 
     int getReadLockStatus(int variable, int transaction_id);
     int getWriteLockStatus(int variable, int transaction_id);
+
+    LockDetail getLockDetail(int variable);
 };
 
 #endif

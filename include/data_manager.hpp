@@ -35,7 +35,6 @@ public:
     void initializeDataManager();
     void setData(int variable, int value, int commit_time);
     void printDM();
-    OperationResult read( int variable, Transaction txn);
     int readRO( int variable, Transaction txn);
     bool checkIfDataRecovered(int variable);
     int getLastCommittedTime(int variable);
@@ -44,11 +43,15 @@ public:
 
     int getWriteLockStatus(int variable, Transaction txn);
 
-    OperationResult write(int variable, Transaction txn);
+    TransactionResult write(int variable, Transaction *txn);
 
     void setDataCommit(int variable, int value, int commit_time);
 
     void setDataTemp(int variable, int value);
+
+    TransactionResult read(int variable, Transaction *txn);
+
+    TransactionResult writeCheck(int variable, Transaction *txn);
 };
 
 #endif

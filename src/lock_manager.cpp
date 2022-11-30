@@ -19,10 +19,14 @@ void LockManager::reset() {
     lock_table.clear();
 }
 
+LockDetail LockManager::getLockDetail(int variable){
+    return lock_table[variable];
+}
+
 // get read lock status 1 - means available for read, 2 - means waiting , 0 -means failed
 int LockManager::getReadLockStatus(int variable, int transaction_id) {
     // when there is no lock holder or if the current lock status is Read and there is no write waiting
-    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
+    if (lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read) {
         return 1;
     }
         // if the current transaction holds a lock whether read or write
@@ -49,24 +53,23 @@ int LockManager::getWriteLockStatus(int variable, int transaction_id) {
     return 0;
 }
 
-int LockManager::getReadLock(int variable, int transaction_id) {
+bool LockManager::acquireReadLock(int variable, int transaction_id) {
     if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
         lock_table[variable].lock_type = LOCK_TYPE::l_read;
 
         // check that already not holding
         if (lock_table[variable].currentHolderMap.find(transaction_id) == lock_table[variable].currentHolderMap.end()) {
-
             lock_table[variable].currentHolderQueue.push_back(transaction_id);
             lock_table[variable].currentHolderMap[transaction_id] = prev(lock_table[variable].currentHolderQueue.end());
         }
-        return 1;
+        return true;
     }
         // if the current transaction holds a lock whether read or write
     else if (lock_table[variable].currentHolderMap.find(transaction_id) !=
              lock_table[variable].currentHolderMap.end()) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 int LockManager::getWriteLock(int variable, int transaction_id) {

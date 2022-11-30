@@ -4,6 +4,8 @@
 
 using namespace std;
 
+//--------------------------------------------Initialize-------------------------------------------------
+
 void TransactionManager::initializeDB() {
     // Creating 10 sites with datamanager
     for (int site = 1; site <= 10; site++) {
@@ -31,6 +33,8 @@ void TransactionManager::initializeDB() {
     }
 }
 
+//--------------------------------------------Util Methods-------------------------------------------------
+
 void TransactionManager::printTM() {
     for (auto itr = transactions.begin(); itr != transactions.end(); itr++) {
         cout << "T" << (*itr).second.id << ": StartTime = " << (*itr).second.startTime << " "
@@ -51,12 +55,26 @@ TransactionManager::TransactionManager() {
     variableMap = {};
 }
 
-
-
-void TransactionManager::processBlockedOperation(Operation Op, int time){
-    blockedOperations[time] = Op;
+Transaction *TransactionManager::getTransactionFromOperation(Operation Op) {
+    if (Op.type == CMD_TYPE::R) {
+        int txn_id = extractId(Op.vars[0]);
+        int variable_id = extractId(Op.vars[1]);
+        transactions[txn_id].currentInstruction.type = INST_TYPE::Read;
+        transactions[txn_id].currentInstruction.values = {variable_id};
+        return &transactions[txn_id];
+    } else if (Op.type == CMD_TYPE::W) {
+        int txn_id = extractId(Op.vars[0]);
+        int variable_id = extractId(Op.vars[1]);
+        int variable_value = extractId(Op.vars[2]);
+        transactions[txn_id].currentInstruction.type = INST_TYPE::Write;
+        transactions[txn_id].currentInstruction.values = {variable_id, variable_value};
+        return &transactions[txn_id];
+    }
 }
 
+
+
+//--------------------------------------------Transaction Methods-------------------------------------------------
 
 
 void TransactionManager::begin(Operation Op, int time) {
@@ -80,121 +98,82 @@ void TransactionManager::beginRO(Operation Op, int time) {
 }
 
 OperationResult TransactionManager::read(Operation Op, int time) {
-    int txn_id = extractId(Op.vars[0]);
-    int variable_id = extractId(Op.vars[1]);
-    transactions[txn_id].currentInstruction.type = INST_TYPE::Read;
-    transactions[txn_id].currentInstruction.values = {variable_id};
 
 
-    vector<int> currentReadableSites;
-    for (auto var_site: variableMap[variable_id]) {
-        if (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering) {
-            currentReadableSites.push_back(var_site);
-        }
-    }
-    // abort transaction no site up
-    if (currentReadableSites.size() == 0) {
-        transactions[txn_id].status = T_STATUS::t_aborted;
-        OperationResult opRes;
-        opRes.status = RESULT_STATUS::failure;
-        return opRes;
-    }
+    OperationResult OperRes;
+    Transaction *currentTxn = getTransactionFromOperation(Op);
+    int variable_id = currentTxn->currentInstruction.values[0];
+    // If transaction is read-only
+    if (currentTxn->ReadOnly) {
 
-    // search in all the sites that the variable is present in
-    for (auto var_site: currentReadableSites) {
-
-        // Check if this txn is read only
-        if (transactions[txn_id].ReadOnly) {
-            // If xi is not replicated and the site holding xi is up,
-            // then the read-only transaction can read it. Because that is the only site that knows about xi.
-            if (variableMap[variable_id].size() == 1 && siteMap[var_site].status == SITE_STATUS::up) {
-                OperationResult opRes;
-                opRes.status = RESULT_STATUS::success;
-                opRes.msg = "x" + to_string(variable_id) + ": " +
-                            to_string(siteMap[var_site].dm->readRO(variable_id, transactions[txn_id]));
-                return opRes;
-            }
-                // If xi is replicated then RO can read xi from site s if xi was committed at s by some transaction T’
-                // before RO began and s was up all the time between the time when xi was committed and RO began.
-                // In that case RO can read the version that T’ wrote. If there is no such site then RO can abort
-
-                //TODO: add check for site failure between last commit and Txn start
-            else if (variableMap[variable_id].size() != 1 &&
-                     transactions[txn_id].startTime > siteMap[var_site].dm->getLastCommittedTime(variable_id)) {
-
-            }
-
-        } else {
-            // check if the site was up (that means it has committed data) and if the transaction
-            // is not txn.ReadOnly then also check if we can get lock
-            // if the site is recovering (that means it has uncommitted data) then further check where the data(variable)
-            // is un-replicated else check if the replicated data has been committed using unclean_data_on_site that has info about
-            // all the data that is currently uncommitted in the site.
+    } else {
+        // For all the sites that has this variable
+        for (auto var_site: variableMap[variable_id]) {
+            // If site is up or it is recovering and the data is ok to read
             if (siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
                                                                 (variableMap[variable_id].size() == 1 ||
                                                                  siteMap[var_site].dm->checkIfDataRecovered(
                                                                          variable_id)))) {
-                OperationResult OpRn = siteMap[var_site].dm->read(variable_id, transactions[txn_id]);
-                if (OpRn.status == RESULT_STATUS::success) {
-                    if (transactions[txn_id].dirtyData.find(var_site) == transactions[txn_id].dirtyData.end()) {
-                        transactions[txn_id].dirtyData[var_site] = {{variable_id, INST_TYPE::Read}};
-                    } else {
-                        transactions[txn_id].dirtyData[var_site].push_back({variable_id, INST_TYPE::Read});
+                TransactionResult txnRes = siteMap[var_site].dm->read(variable_id, currentTxn);
+
+                if (txnRes.status == RESULT_STATUS::success) {
+                    if (currentTxn->dirtyData.find(var_site) == currentTxn->dirtyData.end()) {
+                        // empty because it's a read data so won't get dirty
+                        currentTxn->dirtyData[var_site] = {};
                     }
-                    return OpRn;
+                    OperRes.status = RESULT_STATUS::success;
+                    return OperRes;
                 } else {
-                    OpRn.msg = "Something went wrong while reading";
-                    return OpRn;
+                    if (transactionWaiting.find(variable_id) == transactionWaiting.end()) {
+                        transactionWaiting[variable_id] = {currentTxn->id};
+                    } else {
+                        transactionWaiting[variable_id].push_back(currentTxn->id);
+                    }
+                    if (transaction_wait_table.find(currentTxn->id) == transactionWaiting.end()) {
+                        transactionWaiting[currentTxn->id] = {txnRes.transactions[0]};
+                    } else {
+                        transactionWaiting[currentTxn->id].push_back(txnRes.transactions[0]);
+                    }
+                    OperRes.status = RESULT_STATUS::failure;
+                    OperRes.msg = "Not able to Read Now in waiting";
+                    return OperRes;
                 }
             }
+        }
 
+        // No site found to read from thus txn is blocked now
+        currentTxn->status = T_STATUS::t_waiting;
+        OperRes.status = RESULT_STATUS::failure;
+        OperRes.msg = "No Site Available to Read";
+        return OperRes;
+    }
+}
+
+
+pair<bool, vector<int>> TransactionManager::isWritePossible(int variable, Transaction *currentTxn){
+    vector<int> blockingTransaction;
+    for (auto var_site: variableMap[variable]) {
+        if (siteMap[var_site].status == SITE_STATUS::up){
+            TransactionResult txnRes = siteMap[var_site].dm->writeCheck(variable, currentTxn);
         }
     }
-
-    // If we haven't found any readable data then return error msg
-    transactions[txn_id].status = T_STATUS::t_waiting;
-    processBlockedOperation(Op, time);
-    OperationResult opRes;
-    opRes.status = RESULT_STATUS::failure;
-    opRes.msg = "Cannot find a suitable site to read";
-    return opRes;
 }
 
 
 OperationResult TransactionManager::write(Operation Op, int time) {
-    int txn_id = extractId(Op.vars[0]);
-    int variable_id = extractId(Op.vars[1]);
-    int variable_value = extractId(Op.vars[2]);
-    transactions[txn_id].currentInstruction.type = INST_TYPE::Write;
-    transactions[txn_id].currentInstruction.values = {variable_id, variable_value};
 
-    vector<int> currentUpdatableSites;
+    OperationResult OperRes;
+    Transaction *currentTxn = getTransactionFromOperation(Op);
+    int variable_id = currentTxn->currentInstruction.values[0];
+    // If transaction is read-only
     for (auto var_site: variableMap[variable_id]) {
-        if (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering) {
-            currentUpdatableSites.push_back(var_site);
-        }
     }
 
-    // abort transaction no site up
-    if (currentUpdatableSites.size() == 0) {
-        transactions[txn_id].status = T_STATUS::t_aborted;
-        OperationResult opRes;
-        opRes.status = RESULT_STATUS::failure;
-        return opRes;
-    }
-
-    bool canAcquireAllLocks = true;
-    for (auto var_site: currentUpdatableSites) {
-        canAcquireAllLocks =
-                canAcquireAllLocks & (siteMap[var_site].dm->getWriteLockStatus(variable_id, transactions[txn_id]) == 1);
-    }
-
-
-
-
-
-    //check if all the locks are available for the current txn - if so grab all locks else don't take any and
-    // put the site to sleep
-
-
+    // No site found to read from thus txn is blocked now
+    currentTxn->status = T_STATUS::t_waiting;
+    OperRes.status = RESULT_STATUS::failure;
+    OperRes.msg = "No Site Available to Read";
+    return OperRes;
 }
+
+

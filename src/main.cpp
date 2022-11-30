@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <sstream>
+#include <fstream>
 #include "common.hpp"
 #include "transaction_manager.hpp"
 
@@ -51,11 +52,12 @@ int main(int argc, const char *argv[])
         exit(1);
     }
 
+
     freopen(argv[1], "r", stdin);
     freopen(argv[2], "w", stdout);
-
     // DataManager dataManager;
     // initializeDataManager(dataManager);
+
     TransactionManager* tm = new TransactionManager();
     tm->initializeDB();
 
@@ -82,18 +84,18 @@ int main(int argc, const char *argv[])
             OptRes = tm->read(operation, time);
             cout << OptRes.msg << "\n";
             break;
-        case 32:
-            /* code */
-            break;
-        case 64:
-            /* code */
-            break; 
-        case 128:
-            /* code */
-            break; 
-        case 256:
-            /* code */
-            break;        
+//        case 32:
+//            /* code */
+//            break;
+//        case 64:
+//            /* code */
+//            break;
+//        case 128:
+//            /* code */
+//            break;
+//        case 256:
+//            /* code */
+//            break;
         default:
             break;
         }

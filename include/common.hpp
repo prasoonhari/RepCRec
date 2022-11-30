@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <list>
+#include <deque>
 #include <utility>
 #include <deque>
 
@@ -66,7 +67,7 @@ enum LOCK_TYPE
 
 struct LockDetail
 {
-    LOCK_TYPE lock_type;
+    LOCK_TYPE lock_type = l_read;
     // transcation and the time it started holding the lock
     std::map<int , std::deque<int>::iterator> currentHolderMap;
     std::deque<int> currentHolderQueue;
@@ -87,6 +88,11 @@ struct OperationResult {
     std::string msg;
 };
 
+struct TransactionResult {
+    RESULT_STATUS status;
+    std::deque<int> transactions;
+};
+
 
 enum T_STATUS
 {
@@ -105,7 +111,7 @@ struct Transaction
     T_STATUS status;
     Instruction currentInstruction;
     // site -> data list  - list of all data changed or read from a site
-    std::map<int, std::vector<std::pair<int, INST_TYPE>>> dirtyData;
+    std::map<int, std::vector<int>> dirtyData;
     // First time the site was accessed
     std::map<int, int> siteAccessTime;
 
