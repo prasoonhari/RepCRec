@@ -81,11 +81,14 @@ OperationResult TransactionManager::read(Operation Op, int time) {
     }
     // abort transaction no site up
     if (currentReadableSites.size() == 0) {
-
+        transactions[txn_id].status = T_STATUS::t_aborted;
+        OperationResult opRes;
+        opRes.status = RESULT_STATUS::failure;
+        return opRes;
     }
 
     // search in all the sites that the variable is present in
-    for (auto var_site: variableMap[variable_id]) {
+    for (auto var_site: currentReadableSites) {
         if (transactions[txn_id].ReadOnly) {
             // If xi is not replicated and the site holding xi is up,
             // then the read-only transaction can read it. Because that is the only site that knows about xi.
@@ -109,40 +112,30 @@ OperationResult TransactionManager::read(Operation Op, int time) {
         } else {
             // check if the site was up (that means it has committed data) and if the transaction
             // is not txn.ReadOnly then also check if we can get lock
-            if (siteMap[var_site].status == SITE_STATUS::up) {
-                int lockStatus = siteMap[var_site].dm->getReadLockStatus(variable_id, transactions[txn_id]);
-                if (lockStatus == 1) {
-                    OperationResult OpRn = siteMap[var_site].dm->read(variable_id, transactions[txn_id]);
-                    if (OpRn.status == RESULT_STATUS::success) {
-                        return OpRn;
-                    } else {
-                        OpRn.msg = "Something went wrong while reading";
-                        return OpRn;
+            if (siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
+                                                                (variableMap[variable_id].size() == 1 ||
+                                                                 siteMap[var_site].dm->checkIfDataRecovered(variable_id)))) {
+                OperationResult OpRn = siteMap[var_site].dm->read(variable_id, transactions[txn_id]);
+                if (OpRn.status == RESULT_STATUS::success) {
+                    if(transactions[txn_id].dirtyData.find(var_site)  == transactions[txn_id].dirtyData.end()){
+                        transactions[txn_id].dirtyData[var_site] = {variable_id};
+                    }else{
+                        transactions[txn_id].dirtyData[var_site].push_back(variable_id);
                     }
+                    return OpRn;
+                } else {
+                    OpRn.msg = "Something went wrong while reading";
+                    return OpRn;
                 }
             }
-                // if the site is recovering (that means it has uncommitted data) then further check where the data(variable)
-                // is un-replicated else check if the replicated data has been committed using unclean_data_on_site that has info about
-                // all the data that is currently uncommitted in the site.
-            else if (siteMap[var_site].status == SITE_STATUS::recovering &&
-                     (variableMap[variable_id].size() == 1 ||
-                      siteMap[var_site].dm->checkIfDataRecovered(variable_id))) {
-                int lockStatus = siteMap[var_site].dm->getReadLockStatus(variable_id, transactions[txn_id]);
-                if (lockStatus == 1) {
-                    OperationResult OpRn = siteMap[var_site].dm->read(variable_id, transactions[txn_id]);
-                    if (OpRn.status == RESULT_STATUS::success) {
-                        return OpRn;
-                    } else {
-                        OpRn.msg = "Something went wrong while reading";
-                        return OpRn;
-                    }
-                }
-            }
+            // if the site is recovering (that means it has uncommitted data) then further check where the data(variable)
+            // is un-replicated else check if the replicated data has been committed using unclean_data_on_site that has info about
+            // all the data that is currently uncommitted in the site.
         }
     }
 
     // If we haven't found any readable data then return error msg
-
+    blockedTransactions.push_back(txn_id);
     OperationResult opRes;
     opRes.status = RESULT_STATUS::failure;
     opRes.msg = "Cannot find a suitable site to read";
@@ -150,7 +143,7 @@ OperationResult TransactionManager::read(Operation Op, int time) {
 }
 
 
-void TransactionManager::write(Operation Op, int time) {
+OperationResult TransactionManager::write(Operation Op, int time) {
     int txn_id = extractId(Op.vars[0]);
     int variable_id = extractId(Op.vars[1]);
     transactions[txn_id].currentInstruction.type = INST_TYPE::Write;
@@ -162,6 +155,23 @@ void TransactionManager::write(Operation Op, int time) {
             currentUpdatableSites.push_back(var_site);
         }
     }
+
+    // abort transaction no site up
+    if (currentUpdatableSites.size() == 0) {
+        transactions[txn_id].status = T_STATUS::t_aborted;
+        OperationResult opRes;
+        opRes.status = RESULT_STATUS::failure;
+        return opRes;
+    }
+
+    bool canAcquireAllLocks = true;
+    for (auto var_site: currentUpdatableSites) {
+        canAcquireAllLocks = canAcquireAllLocks & (siteMap[var_site].dm->getWriteLockStatus(variable_id, transactions[txn_id]) == 1);
+    }
+
+
+
+
 
     //check if all the locks are available for the current txn - if so grab all locks else don't take any and
     // put the site to sleep

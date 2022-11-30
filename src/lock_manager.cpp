@@ -80,6 +80,7 @@ int LockManager::getReadLock(int variable, int transaction_id) {
         }
         return 2;
     }
+    return 0;
 }
 
 int LockManager::getWriteLock(int variable, int transaction_id) {

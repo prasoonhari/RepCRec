@@ -103,6 +103,8 @@ struct Transaction
     bool ReadOnly;
     T_STATUS status;
     Instruction currentInstruction;
+    // site -> data list  - list of all data changed or read from a site
+    std::map<int, std::vector<int>> dirtyData;
 };
 
 struct DataDetail

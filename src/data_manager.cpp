@@ -46,10 +46,15 @@ int DataManager::getWriteLockStatus(int variable, Transaction txn){
 OperationResult DataManager::read(int variable, Transaction txn)
 {
     OperationResult opRes;
-    if ((lm->getReadLock(variable, txn.id) == 1))
+    int lock_status = (lm->getReadLock(variable, txn.id));
+    if (lock_status == 1)
     {
         opRes.status = RESULT_STATUS::success;
         opRes.msg = "x" + to_string(variable) + ": " + to_string(data[variable].committedValue);
+        return opRes;
+    } else if (lock_status == 2){
+        opRes.status = RESULT_STATUS::success;
+        opRes.msg =  "In waiting Queue";
         return opRes;
     }
     opRes.status = RESULT_STATUS::failure;

@@ -40,7 +40,7 @@ public:
     void begin(Operation O, int time);
     void beginRO(Operation O, int time);
     OperationResult read(Operation O, int time);
-    void write(Operation O,  int time);
+    OperationResult write(Operation Op, int time);
     // void end(Operation O);
     // void fails(Operation O);
     // void recover(Operation O);
