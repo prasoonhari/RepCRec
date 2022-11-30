@@ -70,9 +70,9 @@ struct LockDetail
     // transcation and the time it started holding the lock
     std::map<int , std::deque<int>::iterator> currentHolderMap;
     std::deque<int> currentHolderQueue;
-    // waiting tranasactions
-    std::map<int , std::deque<int>::iterator> waitingMap;
-    std::deque<int> waitingQueue;
+//    // waiting tranasactions
+//    std::map<int , std::deque<int>::iterator> waitingMap;
+//    std::deque<int> waitingQueue;
 };
 
 
@@ -96,6 +96,7 @@ enum T_STATUS
     t_running
 };
 
+
 struct Transaction
 {
     int id;
@@ -104,7 +105,10 @@ struct Transaction
     T_STATUS status;
     Instruction currentInstruction;
     // site -> data list  - list of all data changed or read from a site
-    std::map<int, std::vector<int>> dirtyData;
+    std::map<int, std::vector<std::pair<int, INST_TYPE>>> dirtyData;
+    // First time the site was accessed
+    std::map<int, int> siteAccessTime;
+
 };
 
 struct DataDetail

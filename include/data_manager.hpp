@@ -45,6 +45,10 @@ public:
     int getWriteLockStatus(int variable, Transaction txn);
 
     OperationResult write(int variable, Transaction txn);
+
+    void setDataCommit(int variable, int value, int commit_time);
+
+    void setDataTemp(int variable, int value);
 };
 
 #endif

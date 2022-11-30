@@ -8,6 +8,7 @@ DataManager::DataManager(int _site_id)
 {
     site_id = _site_id;
     data = {};
+    // TODO: use for checking for all the data that has been not committed after this site was recovered
     unclean_data_on_site = {};
     lm = new LockManager(_site_id);
 }
@@ -18,6 +19,17 @@ void DataManager::initializeDataManager()
     {
         lm->initializeLock(x.first);
     }
+}
+
+void DataManager::setDataCommit(int variable, int value, int commit_time)
+{
+    data[variable].currentValue = value;
+    data[variable].lastCommitTime = commit_time;
+}
+
+void DataManager::setDataTemp(int variable, int value)
+{
+    data[variable].currentValue = value;
 }
 
 void DataManager::setData(int variable, int value, int commit_time)
@@ -66,8 +78,9 @@ OperationResult DataManager::write(int variable, Transaction txn)
     OperationResult opRes;
     if ((lm->getWriteLock(variable, txn.id) == 1))
     {
+        setDataTemp(variable,txn.currentInstruction.values[1]);
         opRes.status = RESULT_STATUS::success;
-        opRes.msg = "x" + to_string(variable) + ": " + to_string(data[variable].committedValue);
+        opRes.msg = "Temporary written x" + to_string(variable) + " to" + to_string(data[variable].committedValue);
         return opRes;
     }
     opRes.status = RESULT_STATUS::failure;

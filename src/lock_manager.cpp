@@ -22,16 +22,13 @@ void LockManager::reset() {
 // get read lock status 1 - means available for read, 2 - means waiting , 0 -means failed
 int LockManager::getReadLockStatus(int variable, int transaction_id) {
     // when there is no lock holder or if the current lock status is Read and there is no write waiting
-    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read) &&
-        lock_table[variable].waitingQueue.empty()) {
+    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
         return 1;
     }
         // if the current transaction holds a lock whether read or write
     else if (lock_table[variable].currentHolderMap.find(transaction_id) !=
              lock_table[variable].currentHolderMap.end()) {
         return 1;
-    } else {
-        return 2;
     }
     return 0;
 }
@@ -48,15 +45,12 @@ int LockManager::getWriteLockStatus(int variable, int transaction_id) {
              lock_table[variable].currentHolderMap.find(transaction_id) !=
              lock_table[variable].currentHolderMap.end()) {
         return 1;
-    } else {
-        return 2;
     }
     return 0;
 }
 
 int LockManager::getReadLock(int variable, int transaction_id) {
-    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read) &&
-        lock_table[variable].waitingQueue.empty()) {
+    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
         lock_table[variable].lock_type = LOCK_TYPE::l_read;
 
         // check that already not holding
@@ -71,14 +65,6 @@ int LockManager::getReadLock(int variable, int transaction_id) {
     else if (lock_table[variable].currentHolderMap.find(transaction_id) !=
              lock_table[variable].currentHolderMap.end()) {
         return 1;
-    }
-        // In all other condition the txn will have to wait
-    else {
-        if (lock_table[variable].waitingMap.find(transaction_id) == lock_table[variable].waitingMap.end()) {
-            lock_table[variable].waitingQueue.push_back(transaction_id);
-            lock_table[variable].waitingMap[transaction_id] = prev(lock_table[variable].waitingQueue.end());
-        }
-        return 2;
     }
     return 0;
 }
@@ -103,12 +89,5 @@ int LockManager::getWriteLock(int variable, int transaction_id) {
         lock_table[variable].lock_type = LOCK_TYPE::l_write;
         return 1;
     }
-        // In all other condition the txn will have to wait
-    else {
-        if (lock_table[variable].waitingMap.find(transaction_id) == lock_table[variable].waitingMap.end()) {
-            lock_table[variable].waitingQueue.push_back(transaction_id);
-            lock_table[variable].waitingMap[transaction_id] = prev(lock_table[variable].waitingQueue.end());
-        }
-        return 2;
-    }
+    return 0;
 }

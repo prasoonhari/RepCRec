@@ -25,12 +25,15 @@ class TransactionManager
 private:
     // all the transaction details
     std::map<int, Transaction> transactions;
-
     // blocked transaction queue
     std::deque<int> blockedTransactions;
+    // stores the operation that was not finished successfully; Time -> operation
+    std::map<int, Operation> blockedOperations;
+    // variable on which txn is waiting for
+    std::map<int, Operation> variableLock;
     // An instance of data manager
     std::map<int, SiteDetail> siteMap;
-    // variable and the sites they are present
+    // variable and the sites they are present - Used to check if a data is replicated or not
     std::map<int, std::vector<int>> variableMap;
 
 public:
@@ -44,6 +47,7 @@ public:
     // void end(Operation O);
     // void fails(Operation O);
     // void recover(Operation O);
+    void processBlockedOperation(Operation Op, int time);
 };
 
 #endif

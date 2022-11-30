@@ -5,10 +5,13 @@
 using namespace std;
 
 void TransactionManager::initializeDB() {
+    // Creating 10 sites with datamanager
     for (int site = 1; site <= 10; site++) {
         siteMap[site] = {new DataManager(site), SITE_STATUS::up, 0};
     }
 
+
+    // Setting the initial data value in each site
     for (int var = 1; var <= 20; var++) {
         if (var & 1) {
             siteMap[1 + var % 10].dm->setData(var, 10 * var, 0);
@@ -22,6 +25,7 @@ void TransactionManager::initializeDB() {
         }
     }
 
+    // Initializing the 10 datamanager -> will create the lockManager (lock_table) for each site.
     for (int site = 1; site <= 10; site++) {
         siteMap[site].dm->initializeDataManager();
     }
@@ -48,12 +52,20 @@ TransactionManager::TransactionManager() {
 }
 
 
+
+void TransactionManager::processBlockedOperation(Operation Op, int time){
+    blockedOperations[time] = Op;
+}
+
+
+
 void TransactionManager::begin(Operation Op, int time) {
     Transaction txn;
     txn.id = extractId(Op.vars[0]);
     txn.startTime = time;
     txn.ReadOnly = false;
     txn.status = t_running;
+    txn.dirtyData = {};
     transactions[txn.id] = txn;
 }
 
@@ -63,6 +75,7 @@ void TransactionManager::beginRO(Operation Op, int time) {
     txn.startTime = time;
     txn.ReadOnly = true;
     txn.status = t_running;
+    txn.dirtyData = {};
     transactions[txn.id] = txn;
 }
 
@@ -89,6 +102,8 @@ OperationResult TransactionManager::read(Operation Op, int time) {
 
     // search in all the sites that the variable is present in
     for (auto var_site: currentReadableSites) {
+
+        // Check if this txn is read only
         if (transactions[txn_id].ReadOnly) {
             // If xi is not replicated and the site holding xi is up,
             // then the read-only transaction can read it. Because that is the only site that knows about xi.
@@ -112,15 +127,19 @@ OperationResult TransactionManager::read(Operation Op, int time) {
         } else {
             // check if the site was up (that means it has committed data) and if the transaction
             // is not txn.ReadOnly then also check if we can get lock
+            // if the site is recovering (that means it has uncommitted data) then further check where the data(variable)
+            // is un-replicated else check if the replicated data has been committed using unclean_data_on_site that has info about
+            // all the data that is currently uncommitted in the site.
             if (siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
                                                                 (variableMap[variable_id].size() == 1 ||
-                                                                 siteMap[var_site].dm->checkIfDataRecovered(variable_id)))) {
+                                                                 siteMap[var_site].dm->checkIfDataRecovered(
+                                                                         variable_id)))) {
                 OperationResult OpRn = siteMap[var_site].dm->read(variable_id, transactions[txn_id]);
                 if (OpRn.status == RESULT_STATUS::success) {
-                    if(transactions[txn_id].dirtyData.find(var_site)  == transactions[txn_id].dirtyData.end()){
-                        transactions[txn_id].dirtyData[var_site] = {variable_id};
-                    }else{
-                        transactions[txn_id].dirtyData[var_site].push_back(variable_id);
+                    if (transactions[txn_id].dirtyData.find(var_site) == transactions[txn_id].dirtyData.end()) {
+                        transactions[txn_id].dirtyData[var_site] = {{variable_id, INST_TYPE::Read}};
+                    } else {
+                        transactions[txn_id].dirtyData[var_site].push_back({variable_id, INST_TYPE::Read});
                     }
                     return OpRn;
                 } else {
@@ -128,14 +147,13 @@ OperationResult TransactionManager::read(Operation Op, int time) {
                     return OpRn;
                 }
             }
-            // if the site is recovering (that means it has uncommitted data) then further check where the data(variable)
-            // is un-replicated else check if the replicated data has been committed using unclean_data_on_site that has info about
-            // all the data that is currently uncommitted in the site.
+
         }
     }
 
     // If we haven't found any readable data then return error msg
-    blockedTransactions.push_back(txn_id);
+    transactions[txn_id].status = T_STATUS::t_waiting;
+    processBlockedOperation(Op, time);
     OperationResult opRes;
     opRes.status = RESULT_STATUS::failure;
     opRes.msg = "Cannot find a suitable site to read";
@@ -146,8 +164,9 @@ OperationResult TransactionManager::read(Operation Op, int time) {
 OperationResult TransactionManager::write(Operation Op, int time) {
     int txn_id = extractId(Op.vars[0]);
     int variable_id = extractId(Op.vars[1]);
+    int variable_value = extractId(Op.vars[2]);
     transactions[txn_id].currentInstruction.type = INST_TYPE::Write;
-    transactions[txn_id].currentInstruction.values = {variable_id};
+    transactions[txn_id].currentInstruction.values = {variable_id, variable_value};
 
     vector<int> currentUpdatableSites;
     for (auto var_site: variableMap[variable_id]) {
@@ -166,7 +185,8 @@ OperationResult TransactionManager::write(Operation Op, int time) {
 
     bool canAcquireAllLocks = true;
     for (auto var_site: currentUpdatableSites) {
-        canAcquireAllLocks = canAcquireAllLocks & (siteMap[var_site].dm->getWriteLockStatus(variable_id, transactions[txn_id]) == 1);
+        canAcquireAllLocks =
+                canAcquireAllLocks & (siteMap[var_site].dm->getWriteLockStatus(variable_id, transactions[txn_id]) == 1);
     }
 
 
