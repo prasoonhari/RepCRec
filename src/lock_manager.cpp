@@ -53,8 +53,22 @@ int LockManager::getWriteLockStatus(int variable, int transaction_id) {
     return 0;
 }
 
+bool LockManager::removeLock(int variable, int transaction_id) {
+    // no one currently holds the lock
+    if (lock_table[variable].currentHolderMap.find(transaction_id) == lock_table[variable].currentHolderMap.end()){
+        cout << "No lock to remove \n";
+        return false;
+    }
+    lock_table[variable].currentHolderQueue.erase(lock_table[variable].currentHolderMap[transaction_id]);
+    lock_table[variable].currentHolderMap.erase(transaction_id);
+    if (lock_table[variable].currentHolderQueue.empty()){
+        lock_table[variable].lock_type = LOCK_TYPE::l_NONE;
+    }
+    return true;
+}
+
 bool LockManager::acquireReadLock(int variable, int transaction_id) {
-    if ((lock_table[variable].currentHolderQueue.empty() || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
+    if ((lock_table[variable].lock_type == LOCK_TYPE::l_NONE || lock_table[variable].lock_type == LOCK_TYPE::l_read)) {
         lock_table[variable].lock_type = LOCK_TYPE::l_read;
 
         // check that already not holding
@@ -73,14 +87,10 @@ bool LockManager::acquireReadLock(int variable, int transaction_id) {
 }
 
 bool LockManager::acquireWriteLock(int variable, int transaction_id) {
-    if (lock_table[variable].currentHolderQueue.empty()) {
+    if (lock_table[variable].lock_type == LOCK_TYPE::l_NONE) {
         lock_table[variable].lock_type = LOCK_TYPE::l_write;
-
-        // check that already not holding
-        if (lock_table[variable].currentHolderMap.find(transaction_id) == lock_table[variable].currentHolderMap.end()) {
-            lock_table[variable].currentHolderQueue.push_back(transaction_id);
-            lock_table[variable].currentHolderMap[transaction_id] = prev(lock_table[variable].currentHolderQueue.end());
-        }
+        lock_table[variable].currentHolderQueue.push_back(transaction_id);
+        lock_table[variable].currentHolderMap[transaction_id] = prev(lock_table[variable].currentHolderQueue.end());
         return true;
 
     }
@@ -93,4 +103,14 @@ bool LockManager::acquireWriteLock(int variable, int transaction_id) {
         return true;
     }
     return false;
+}
+
+void LockManager::printLM() {
+    for (auto itt = lock_table.begin(); itt != lock_table.end(); itt++) {
+        cout << "Lock x" << itt->first << ": " << itt->second.lock_type << ", current Holder: ";
+        for (auto x : itt->second.currentHolderQueue){
+            cout << x << " ";
+        }
+        cout << "\n";
+    }
 }

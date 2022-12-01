@@ -22,17 +22,20 @@ private:
     //the variables that are not committed after recovering
     std::set<int> unclean_data_on_site;
 
-    //map of the transaction and the variables it has changed
-    // gets updated when any write happens
-    // make modification to data if commit else make it same as last committed value if aborting
-    // TODO: remove items from it when committed or aborted
-    std::map<int, std::vector<int>> txn_changed_variables;
+
 
 
 
 public:
+    //map of the transaction and the variables it has changed
+    // gets updated when any write happens
+    // make modification to data if commit else make it same as last committed value if aborting
+    // TODO: remove items from it when committed or aborted
+    std::map<int, std::vector<int>> txn_locked_variables;
+
+
     DataManager(int _site_id);
-    void initializeDataManager();
+    void initializeLockTable();
     void setData(int variable, int value, int commit_time);
     void printDM();
     std::pair<int, std::vector<int>> writeCheck(int variable, Transaction *txn);
@@ -46,7 +49,7 @@ public:
 
     TransactionResult write(int variable, Transaction *txn, int change_time);
 
-    void setDataCommit(int variable, int value, int commit_time);
+    void setDataCommit(int variable, int commit_time);
 
     void setDataTemp(int variable, int value);
 
@@ -56,6 +59,14 @@ public:
     bool checkReadLockCondition(LockDetail varLockDetail, int txn_Id);
 
     bool checkWriteLockCondition(LockDetail varLockDetail, int txn_Id);
+
+    void printLM();
+
+    void failThisSite();
+
+    std::vector<int> releaseLock(int variable, int txn_id);
+
+    void setDataRevert(int variable);
 };
 
 #endif

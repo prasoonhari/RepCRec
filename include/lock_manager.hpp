@@ -26,6 +26,10 @@ public:
     int getWriteLockStatus(int variable, int transaction_id);
 
     LockDetail getLockDetail(int variable);
+
+    bool removeLock(int variable, int transaction_id);
+
+    void printLM();
 };
 
 #endif

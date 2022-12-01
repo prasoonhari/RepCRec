@@ -15,7 +15,7 @@ struct SiteDetail
     DataManager* dm;
     SITE_STATUS status;
     int lastStatusChangeTime;
-    int lastFailureTime;
+    std::vector<int> failedHistory;
 };
 
 
@@ -30,7 +30,7 @@ private:
     // variable and the sites they are present - Used to check if a data is replicated or not
     std::map<int, std::vector<int>> variableMap;
     // variable -> txns
-    std::map<int, std::vector<int>> transactionWaiting;
+    std::map<int, std::vector<int>> transactionWaitingForData;
     // sites -> txns
     std::map<int, std::vector<int>> transactionWaitingForSite;
 
@@ -44,8 +44,8 @@ public:
     std::pair<bool, std::vector<int>> isWritePossible(int variable, Transaction *currentTxn);
     void begin(Operation O, int time);
     void beginRO(Operation O, int time);
-    OperationResult read(Operation O, int time);
-    OperationResult write(Operation Op, int time);
+    OperationResult read(Transaction *currentTxn, int time);
+    OperationResult write(Transaction *currentTxn, int time);
     // void end(Operation O);
     // void fails(Operation O);
     // void recover(Operation O);
@@ -55,6 +55,20 @@ public:
 
 
     void printDump();
+
+    void failSite(Operation Op, int time);
+
+    void endTransaction(Operation Op, int time);
+
+    void commitTransaction(Transaction *currentTxn, int commit_time);
+
+    void abortTransaction(Transaction *currentTxn, int commit_time);
+
+    void tryExecutionAgain(std::vector<int> txns, int time);
+
+    OperationResult writeOperation(Operation Op, int time);
+    OperationResult readOperation(Operation Op, int time);
+
 };
 
 #endif

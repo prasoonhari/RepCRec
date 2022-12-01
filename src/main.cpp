@@ -50,16 +50,23 @@ int main(int argc, const char *argv[]) {
     freopen(argv[1], "r", stdin);
     freopen(argv[2], "w", stdout);
     // DataManager dataManager;
-    // initializeDataManager(dataManager);
+    // initializeLockTable(dataManager);
 
     TransactionManager *tm = new TransactionManager();
     tm->initializeDB();
 
     string inputCommand;
     int time = 0;
-    while (cin >> inputCommand) {
+    while (getline(cin, inputCommand)) {
+        if (inputCommand.substr(0, 2) == "//") {
+            continue;
+        }
         time++;
+
         OperationResult OptRes;
+        if (inputCommand.empty()) {
+            continue;
+        }
         Operation operation = parseCommand(inputCommand);
         switch (operation.type) {
             case CMD_TYPE::begin:
@@ -69,30 +76,30 @@ int main(int argc, const char *argv[]) {
                 tm->beginRO(operation, time);
                 break;
             case CMD_TYPE::W:
-                OptRes = tm->write(operation, time);
-                cout << OptRes.msg << "\n";
+                OptRes = tm->writeOperation(operation, time);
+//                cout << OptRes.msg << "\n";
                 break;
             case CMD_TYPE::R:
                 /* code */
-                OptRes = tm->read(operation, time);
+                OptRes = tm->readOperation(operation, time);
                 cout << OptRes.msg << "\n";
                 break;
-//        case 32:
-//            /* code */
-//            break;
+            case CMD_TYPE::fail:
+                tm->failSite(operation, time);
+                break;
 //        case 64:
 //            /* code */
 //            break;
             case CMD_TYPE::dump:
                 tm->printDump();
-            break;
-//        case 256:
-//            /* code */
-//            break;
+                break;
+            case CMD_TYPE::end:
+                tm->endTransaction(operation, time);
+                break;
             default:
                 break;
         }
     }
 
-    tm->printTM();
+//    tm->printTM();
 }

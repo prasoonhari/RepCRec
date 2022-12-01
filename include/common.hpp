@@ -61,13 +61,14 @@ enum SITE_STATUS
 
 enum LOCK_TYPE
 {
+    l_NONE = 1,
     l_read = 2,
     l_write = 4,
 };
 
 struct LockDetail
 {
-    LOCK_TYPE lock_type = l_read;
+    LOCK_TYPE lock_type = LOCK_TYPE::l_NONE;
     // transcation and the time it started holding the lock
     std::map<int , std::deque<int>::iterator> currentHolderMap;
     std::deque<int> currentHolderQueue;
@@ -97,7 +98,7 @@ struct TransactionResult {
 enum T_STATUS
 {
     t_committed,
-    t_aborted,
+    t_aborting,
     t_blocked,
     t_waiting,
     t_running
