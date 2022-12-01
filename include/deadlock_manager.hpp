@@ -9,7 +9,6 @@
 
 class DeadLockManager {
 private:
-    // lock detail on each variable. variable_id -> lock details
 
 public:
     DeadLockManager();
