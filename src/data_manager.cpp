@@ -57,8 +57,7 @@ bool DataManager::checkReadLockCondition(LockDetail varLockDetail, int txn_Id) {
 
 bool DataManager::checkWriteLockCondition(LockDetail varLockDetail, int txn_Id) {
     return varLockDetail.lock_type == LOCK_TYPE::l_NONE ||
-           (varLockDetail.lock_type == LOCK_TYPE::l_read && varLockDetail.currentHolderMap.size() <= 1) ||
-           (varLockDetail.lock_type == LOCK_TYPE::l_write &&
+           (varLockDetail.currentHolderMap.size() == 1 &&
             varLockDetail.currentHolderMap.find(txn_Id) != varLockDetail.currentHolderMap.end());
 }
 
@@ -70,7 +69,7 @@ TransactionResult DataManager::read(int variable, Transaction *txn) {
         txnRes.status = RESULT_STATUS::success;
         bool lockAcquired = lm->acquireReadLock(variable, txn->id);
         if (!lockAcquired) {
-            cout << "fail to acquire lock - something went wrong";
+            cout << "fail to acquire read lock - something went wrong \n";
         } else {
             // Put in this map to track which transaction holds which variables of this site;
             if (txn_locked_variables.find(txn->id) == txn_locked_variables.end()) {
@@ -113,7 +112,7 @@ TransactionResult DataManager::write(int variable, Transaction *txn, int change_
         bool lockAcquired = lm->acquireWriteLock(variable, txn->id);
 
         if (!lockAcquired) {
-            cout << "fail to acquire lock - something went wrong";
+            cout << "fail to acquire write lock - something went wrong \n";
         } else {
             // Put in this map to track which transaction holds which variables of this site;
             // INFO: There is no need to delete anything from this other than when a Txn commits or aborts

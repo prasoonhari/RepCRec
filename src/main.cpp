@@ -77,12 +77,12 @@ int main(int argc, const char *argv[]) {
                 break;
             case CMD_TYPE::W:
                 OptRes = tm->writeOperation(operation, time);
-//                cout << OptRes.msg << "\n";
+                cout << OptRes.msg;
                 break;
             case CMD_TYPE::R:
                 /* code */
                 OptRes = tm->readOperation(operation, time);
-                cout << OptRes.msg << "\n";
+                cout << OptRes.msg;
                 break;
             case CMD_TYPE::fail:
                 tm->failSite(operation, time);
