@@ -20,17 +20,18 @@ struct SiteDetail {
 
 class TransactionManager {
 private:
-    // all the transaction details
+    // all the transaction details - All Txn that we receive is stored
     std::map<int, Transaction> transactions;
-    // An instance of data manager
+    // Has the site detail to all the 10 sites (site -> their Detail) (the detail has instance of dataManager used to manage the site)
     std::map<int, SiteDetail> siteMap;
-    // variable and the sites they are present - Used to check if a data is replicated or not
+    // variable and the sites they are present -Initialized at the beginning Used to check if a data is replicated or not
     std::map<int, std::vector<int>> variableMap;
-    // variable -> txns
+    // variable -> txns, for a given variable list of Txn that are waiting (because can't acquire lock) (must be in order of the time transaction arrived)
     std::map<int, std::vector<int>> transactionWaitingForData;
     // sites -> txns
+    // TODO: not required i think
     std::map<int, std::vector<int>> transactionWaitingForSite;
-
+    // An AdjList, Txn -> list of Txns that it's waiting for (to acquire locks)
     std::map<int, std::vector<int>> transactionDependency;
 
 
@@ -57,7 +58,6 @@ public:
     Transaction *getTransactionFromOperation(Operation Op);
 
     void isWritePossible(int variable);
-
 
     void printDump();
 
