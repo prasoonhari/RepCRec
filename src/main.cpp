@@ -87,9 +87,9 @@ int main(int argc, const char *argv[]) {
             case CMD_TYPE::fail:
                 tm->failSite(operation, time);
                 break;
-//        case 64:
-//            /* code */
-//            break;
+            case CMD_TYPE::recover:
+                tm->recoverSite(operation, time);
+                break;
             case CMD_TYPE::dump:
                 tm->printDump();
                 break;

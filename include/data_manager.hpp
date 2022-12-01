@@ -19,8 +19,6 @@ private:
     std::map<int, DataDetail> data;
     // Lock Manager instance that holds locks for the site
     LockManager* lm;
-    //the variables that are not committed after recovering
-    std::set<int> unclean_data_on_site;
 
 
 
@@ -33,6 +31,8 @@ public:
     // TODO: remove items from it when committed or aborted
     std::map<int, std::vector<int>> txn_locked_variables;
 
+    //the variables that are not committed after recovering
+    std::set<int> unclean_data_on_site;
 
     DataManager(int _site_id);
     void initializeLockTable();
@@ -64,9 +64,13 @@ public:
 
     void failThisSite();
 
-    std::vector<int> releaseLock(int variable, int txn_id);
+    std::vector<int> releaseLock(int txn_id);
 
     void setDataRevert(int variable);
+
+    void recoverThisSite();
+
+    void setAllDataDirty();
 };
 
 #endif

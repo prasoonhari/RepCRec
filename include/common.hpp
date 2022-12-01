@@ -91,7 +91,7 @@ struct OperationResult {
 
 struct TransactionResult {
     RESULT_STATUS status;
-    std::deque<int> transactions;
+    std::deque<int> blockingTransaction;
 };
 
 
@@ -99,7 +99,9 @@ enum T_STATUS
 {
     t_committed,
     t_aborting,
+    // Blocked by another transaction
     t_blocked,
+    // Waiting means waiting for a site to recover
     t_waiting,
     t_running
 };
@@ -115,6 +117,7 @@ struct Transaction
     // site -> data list  - list of all data changed or read from a site
     std::map<int, std::vector<int>> dirtyData;
     // First time the site was accessed
+    // TODO
     std::map<int, int> siteAccessTime;
 
 };

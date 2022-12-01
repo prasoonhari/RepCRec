@@ -10,18 +10,15 @@
 #include "data_manager.hpp"
 
 
-struct SiteDetail
-{
-    DataManager* dm;
+struct SiteDetail {
+    DataManager *dm;
     SITE_STATUS status;
     int lastStatusChangeTime;
     std::vector<int> failedHistory;
 };
 
 
-
-class TransactionManager
-{
+class TransactionManager {
 private:
     // all the transaction details
     std::map<int, Transaction> transactions;
@@ -39,17 +36,25 @@ private:
 
 public:
     TransactionManager();
+
     void initializeDB();
+
     void printTM();
+
     std::pair<bool, std::vector<int>> isWritePossible(int variable, Transaction *currentTxn);
+
     void begin(Operation O, int time);
+
     void beginRO(Operation O, int time);
+
     OperationResult read(Transaction *currentTxn, int time);
+
     OperationResult write(Transaction *currentTxn, int time);
+
     // void end(Operation O);
     // void fails(Operation O);
     // void recover(Operation O);
-    Transaction* getTransactionFromOperation(Operation Op);
+    Transaction *getTransactionFromOperation(Operation Op);
 
     void isWritePossible(int variable);
 
@@ -67,8 +72,10 @@ public:
     void tryExecutionAgain(std::vector<int> txns, int time);
 
     OperationResult writeOperation(Operation Op, int time);
+
     OperationResult readOperation(Operation Op, int time);
 
+    void recoverSite(Operation Op, int time);
 };
 
 #endif
