@@ -9,7 +9,7 @@ TransactionManager::TransactionManager() {
     siteMap = {};
     transactions = {};
     variableMap = {};
-    deadlockMightOccur = true;
+    deadlockMightOccur = false;
     deadLockManager = new DeadLockManager();
 }
 
@@ -46,13 +46,13 @@ void TransactionManager::initializeDB() {
 
 void TransactionManager::resolveDeadlock(int time) {
     vector<int> transactionInCycle = deadLockManager->deadlockDetector(transactionDependency);
-    if (transactionInCycle.empty()){
+    if (transactionInCycle.empty()) {
         return;
     }
     Transaction *youngestTxn;
     int latestTime = -1;
-    for (auto txn : transactionInCycle){
-        if (transactions[txn].startTime > latestTime){
+    for (auto txn: transactionInCycle) {
+        if (transactions[txn].startTime > latestTime) {
             youngestTxn = &transactions[txn];
             latestTime = max(latestTime, transactions[txn].startTime);
         }
@@ -63,7 +63,7 @@ void TransactionManager::resolveDeadlock(int time) {
 }
 
 void TransactionManager::printTM() {
-    for (auto & transaction : transactions) {
+    for (auto &transaction: transactions) {
         cout << "T" << transaction.second.id << ": StartTime = " << transaction.second.startTime << " "
              << ": ReadOnly = " << transaction.second.ReadOnly << " "
              << ": status = " << transaction.second.status << " ";
@@ -71,12 +71,10 @@ void TransactionManager::printTM() {
     }
 }
 
-int extractId(const string& opString) {
+int extractId(const string &opString) {
     string idx = opString.substr(1, opString.size() - 1);
     return stoi(idx);
 }
-
-
 
 
 Transaction *TransactionManager::getTransactionFromOperation(Operation Op) {
@@ -113,7 +111,7 @@ void TransactionManager::begin(Operation Op, int time) {
 
 map<int, int> TransactionManager::CreateSnapshot() {
     map<int, int> snapshot;
-    for (const auto& varMap: variableMap) {
+    for (const auto &varMap: variableMap) {
         if (snapshot.find(varMap.first) == snapshot.end()) {
             for (auto var_site: varMap.second) {
                 if (siteMap[var_site].status == SITE_STATUS::up) {
@@ -205,7 +203,8 @@ OperationResult TransactionManager::readOnly(Transaction *currentTxn, int variab
 }
 
 // Maintains the maps that is used to process the txns that will be waiting
-void TransactionManager::processBlockingTransaction(Transaction *currentTxn, int variable_id, const vector<int>& blockingTxns){
+void TransactionManager::processBlockingTransaction(Transaction *currentTxn, int variable_id,
+                                                    const vector<int> &blockingTxns) {
     if (transactionWaitingForData.find(variable_id) == transactionWaitingForData.end()) {
         transactionWaitingForData[variable_id] = {currentTxn->id};
     } else {
@@ -213,22 +212,22 @@ void TransactionManager::processBlockingTransaction(Transaction *currentTxn, int
     }
     if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
         transactionDependency[currentTxn->id] = {};
-        for (auto blkTxn: blockingTxns){
+        for (auto blkTxn: blockingTxns) {
             transactionDependency[currentTxn->id].push_back(blkTxn);
         }
     } else {
-        for (auto blkTxn: blockingTxns){
+        for (auto blkTxn: blockingTxns) {
             transactionDependency[currentTxn->id].push_back(blkTxn);
         }
     }
 
 }
 
-void TransactionManager::ProcessTransactionWaitingForSite(Transaction *currentTxn, int variable_id){
+void TransactionManager::ProcessTransactionWaitingForSite(Transaction *currentTxn, int variable_id) {
     for (auto var_site: variableMap[variable_id]) {
         if (transactionWaitingForSite.find(var_site) == transactionWaitingForSite.end()) {
             transactionWaitingForSite[var_site] = {currentTxn->id};
-        }else{
+        } else {
             transactionWaitingForSite[var_site].push_back(currentTxn->id);
         }
     }
@@ -238,6 +237,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
 
     OperationResult OperRes;
+    deadlockMightOccur = true;
     int variable_id = currentTxn->currentInstruction.values[0];
 
     if (currentTxn->status == T_STATUS::t_aborting) {
@@ -265,7 +265,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
             bool canReadFromOneSite = false;
             for (auto var_site: variableMap[variable_id]) {
                 if (!siteMap[var_site].failedHistory.empty()) {
-                    int lastFailIndex = (int)siteMap[var_site].failedHistory.size() - 1;
+                    int lastFailIndex = (int) siteMap[var_site].failedHistory.size() - 1;
                     int lastTimeThisSiteFailed = siteMap[var_site].failedHistory[lastFailIndex];
                     int lastTimeThisVariableCommittedAtThisSite = siteMap[var_site].dm->getLastCommittedTime(
                             variable_id);
@@ -339,7 +339,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
         OperRes.status = RESULT_STATUS::failure;
         currentTxn->status = T_STATUS::t_blocked;
         OperRes.msg = "Not able to Read Now in waiting\n";
-        processBlockingTransaction(currentTxn,  variable_id, {noteBlockingTransaction});
+        processBlockingTransaction(currentTxn, variable_id, {noteBlockingTransaction});
 
         return OperRes;
     }
@@ -364,7 +364,7 @@ pair<bool, vector<int>> TransactionManager::isWritePossible(int variable, Transa
         return {true, {}};
     } else {
         std::vector<int> v(blockingTransaction.begin(), blockingTransaction.end());
-        return {false,  v};
+        return {false, v};
     }
 }
 
@@ -377,6 +377,7 @@ OperationResult TransactionManager::writeOperation(Operation Op, int time) {
 OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
 
     OperationResult OperRes;
+    deadlockMightOccur = true;
     int variable_id = currentTxn->currentInstruction.values[0];
     // If transaction is read-only
 
@@ -407,6 +408,7 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
     if (isWritePossibleRes.first) {
         for (auto var_site: variableMap[variable_id]) {
             if (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering) {
+
                 siteMap[var_site].dm->write(variable_id, currentTxn, time);
                 if (currentTxn->dirtyData.find(var_site) == currentTxn->dirtyData.end()) {
                     // empty because it's a read data so won't get dirty
@@ -425,7 +427,7 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
         OperRes.status = RESULT_STATUS::failure;
         currentTxn->status = T_STATUS::t_blocked;
         OperRes.msg = "Not able to write Now in waiting\n";
-        processBlockingTransaction(currentTxn,  variable_id, isWritePossibleRes.second);
+        processBlockingTransaction(currentTxn, variable_id, isWritePossibleRes.second);
         return OperRes;
     }
 }
@@ -438,29 +440,29 @@ void TransactionManager::endTransaction(Operation Op, int time) {
         // TODO: think if we should add time -- I think no
         abortTransaction(currentTxn, time);
         currentTxn->status == T_STATUS::t_ended;
-    } else if(currentTxn->status == T_STATUS::t_running) {
+    } else if (currentTxn->status == T_STATUS::t_running) {
         // TODO: think if we should add time
         commitTransaction(currentTxn, time);
         currentTxn->status == T_STATUS::t_ended;
-    } else{
-        cout << "Something is wrong : A Txn with wrong status " << currentTxn->status <<" was trying to end\n";
+    } else {
+        cout << "Something is wrong : A Txn with wrong status " << currentTxn->status << " was trying to end\n";
     }
 }
 
-void TransactionManager::tryExecutionAgain(const vector<int>& txns, int time) {
+void TransactionManager::tryExecutionAgain(const vector<int> &txns, int time) {
     bool somethingChanged = false;
     for (auto txn: txns) {
         if (transactions[txn].status == T_STATUS::t_blocked) {
             transactions[txn].status = T_STATUS::t_running;
             if (transactions[txn].currentInstruction.type == INST_TYPE::Read) {
                 OperationResult operRes = read(&transactions[txn], time);
-                if(operRes.status == RESULT_STATUS::success){
+                if (operRes.status == RESULT_STATUS::success) {
                     somethingChanged = true;
                 }
                 cout << operRes.msg;
             } else if (transactions[txn].currentInstruction.type == INST_TYPE::Write) {
                 OperationResult operRes = write(&transactions[txn], time);
-                if(operRes.status == RESULT_STATUS::success){
+                if (operRes.status == RESULT_STATUS::success) {
                     somethingChanged = true;
                 }
                 cout << operRes.msg;
@@ -479,7 +481,7 @@ void TransactionManager::commitTransaction(Transaction *currentTxn, int commit_t
     // TODO : check if transaction is ready to be committed
     // Make change by the current Txn Permanent
     set<int> releasedVariable;
-    for (const auto& x: currentTxn->dirtyData) {
+    for (const auto &x: currentTxn->dirtyData) {
         // If this is empty that means the txn have just read from data
         // So we nead to just release the locks
         vector<int> allReleaseLock = siteMap[x.first].dm->releaseLock(currentTxn->id);
@@ -514,7 +516,7 @@ void TransactionManager::commitTransaction(Transaction *currentTxn, int commit_t
 void TransactionManager::abortTransaction(Transaction *currentTxn, int abort_time) {
     // Make change by the current Txn Permanent
     set<int> releasedVariable;
-    for (const auto& x: currentTxn->dirtyData) {
+    for (const auto &x: currentTxn->dirtyData) {
         // release all locks in the site visited by this txn if any (will be in case of deadlock breaking)
         vector<int> allReleaseLock = siteMap[x.first].dm->releaseLock(currentTxn->id);
         std::set<int> s(allReleaseLock.begin(), allReleaseLock.end());
@@ -567,7 +569,7 @@ void TransactionManager::recoverSite(Operation Op, int time) {
 
         vector<int> transactionWaiting = {};
 
-        for (auto x : transactionWaitingForSite[siteToRecover]){
+        for (auto x: transactionWaitingForSite[siteToRecover]) {
             transactionWaiting.push_back(x);
         }
         tryExecutionAgain(transactionWaiting, time);

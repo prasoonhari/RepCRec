@@ -186,6 +186,10 @@ void DataManager::printLM() {
 
 void DataManager::failThisSite() {
     lm->reset();
+    // TODO : Think about this .. should this be cleared
+//    txn_locked_variables.clear();
+    unclean_data_on_site.clear();
+
 }
 
 void DataManager::recoverThisSite() {

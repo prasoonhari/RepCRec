@@ -57,6 +57,8 @@ bool LockManager::removeLock(int variable, int transaction_id) {
     // no one currently holds the lock
     if (lock_table[variable].currentHolderMap.find(transaction_id) == lock_table[variable].currentHolderMap.end()){
         //Fixme :: Check why this happening
+        // This is happening because if a site is failed then its lock table gets cleared. But its not removed from the dirty data of a transaction
+        // It's not a bug It's a feature
         cout << "No lock to remove \n";
         return false;
     }
