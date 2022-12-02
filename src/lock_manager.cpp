@@ -56,6 +56,7 @@ int LockManager::getWriteLockStatus(int variable, int transaction_id) {
 bool LockManager::removeLock(int variable, int transaction_id) {
     // no one currently holds the lock
     if (lock_table[variable].currentHolderMap.find(transaction_id) == lock_table[variable].currentHolderMap.end()){
+        //Fixme :: Check why this happening
         cout << "No lock to remove \n";
         return false;
     }

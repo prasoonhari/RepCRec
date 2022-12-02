@@ -61,7 +61,16 @@ int main(int argc, const char *argv[]) {
         if (inputCommand.substr(0, 2) == "//") {
             continue;
         }
+        if (inputCommand.length() == 0){
+            time++;
+            continue;
+        }
         time++;
+
+        if (tm->deadlockMightOccur){
+            tm->resolveDeadlock(time);
+            tm->deadlockMightOccur = false;
+        }
 
         OperationResult OptRes;
         if (inputCommand.empty()) {

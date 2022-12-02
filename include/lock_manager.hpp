@@ -15,7 +15,7 @@ private:
     int lm_id;
 
 public:
-    LockManager(int _lm_id);
+    explicit LockManager(int _lm_id);
     void reset();
     void initializeLock(int variable);
     // acquires the read lock for a txn if all condition are satisfied

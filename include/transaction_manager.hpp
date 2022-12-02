@@ -8,6 +8,7 @@
 #include <deque>
 #include "common.hpp"
 #include "data_manager.hpp"
+#include "deadlock_manager.hpp"
 
 
 struct SiteDetail {
@@ -34,8 +35,14 @@ private:
     // An AdjList, Txn -> list of Txns that it's waiting for (to acquire locks)
     std::map<int, std::vector<int>> transactionDependency;
 
+    DeadLockManager *deadLockManager;
+
+
 
 public:
+    // Flag used to check if we might need a deadlock check at the beginning of the tick
+    bool deadlockMightOccur;
+
     TransactionManager();
 
     void initializeDB();
@@ -56,8 +63,7 @@ public:
     // void fails(Operation O);
     // void recover(Operation O);
     Transaction *getTransactionFromOperation(Operation Op);
-
-    void isWritePossible(int variable);
+    void processBlockingTransaction(Transaction *currentTxn, int variable_id, const std::vector<int>& blockingTxns);
 
     void printDump();
 
@@ -69,7 +75,7 @@ public:
 
     void abortTransaction(Transaction *currentTxn, int commit_time);
 
-    void tryExecutionAgain(std::vector<int> txns, int time);
+    void tryExecutionAgain(const std::vector<int>& txns, int time);
 
     OperationResult writeOperation(Operation Op, int time);
 
@@ -81,9 +87,13 @@ public:
 
     bool readCondition(int var_site, int variable_id);
 
-    OperationResult readOnly(Transaction *currentTxn, int var_site, int variable_id);
+    static OperationResult readOnly(Transaction *currentTxn, int variable_id);
 
     std::map<int, int> CreateSnapshot();
+
+    void resolveDeadlock(int time);
+
+    void ProcessTransactionWaitingForSite(Transaction *currentTxn, int variable_id);
 };
 
 #endif
