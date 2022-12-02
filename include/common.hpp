@@ -88,14 +88,14 @@ struct TransactionResult {
 
 
 enum T_STATUS {
-    t_committed,
+    t_ended = 2,
     // Will get aborted - because a site failed or had a failed Read or write (like no site found)
-    t_aborting,
+    t_aborting = 4,
     // Blocked by another transaction
-    t_blocked,
+    t_blocked= 8,
     // Waiting means waiting for a site to recover
-    t_waiting,
-    t_running
+    t_waiting= 16,
+    t_running = 32
 };
 
 

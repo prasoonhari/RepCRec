@@ -9,7 +9,7 @@ TransactionManager::TransactionManager() {
     siteMap = {};
     transactions = {};
     variableMap = {};
-    deadlockMightOccur = false;
+    deadlockMightOccur = true;
     deadLockManager = new DeadLockManager();
 }
 
@@ -57,7 +57,7 @@ void TransactionManager::resolveDeadlock(int time) {
             latestTime = max(latestTime, transactions[txn].startTime);
         }
     }
-
+    transactionDependency.erase(youngestTxn->id);
     youngestTxn->status = T_STATUS::t_aborting;
     abortTransaction(youngestTxn, time);
 }
@@ -141,7 +141,8 @@ void TransactionManager::beginRO(Operation Op, int time) {
 void TransactionManager::printDump() {
     for (auto site: siteMap) {
         site.second.dm->printDM();
-        site.second.dm->printLM();
+        // TODO If you want to see lock manager status as well
+//        site.second.dm->printLM();
     }
 }
 
@@ -362,7 +363,8 @@ pair<bool, vector<int>> TransactionManager::isWritePossible(int variable, Transa
     if (blockingTransaction.empty()) {
         return {true, {}};
     } else {
-        return {false, {}};
+        std::vector<int> v(blockingTransaction.begin(), blockingTransaction.end());
+        return {false,  v};
     }
 }
 
@@ -435,11 +437,13 @@ void TransactionManager::endTransaction(Operation Op, int time) {
     if (currentTxn->status == T_STATUS::t_aborting || currentTxn->status == T_STATUS::t_waiting) {
         // TODO: think if we should add time -- I think no
         abortTransaction(currentTxn, time);
-
-    } else {
+        currentTxn->status == T_STATUS::t_ended;
+    } else if(currentTxn->status == T_STATUS::t_running) {
         // TODO: think if we should add time
         commitTransaction(currentTxn, time);
-
+        currentTxn->status == T_STATUS::t_ended;
+    } else{
+        cout << "Something is wrong : A Txn with wrong status " << currentTxn->status <<" was trying to end\n";
     }
 }
 
@@ -511,13 +515,13 @@ void TransactionManager::abortTransaction(Transaction *currentTxn, int abort_tim
     // Make change by the current Txn Permanent
     set<int> releasedVariable;
     for (const auto& x: currentTxn->dirtyData) {
+        // release all locks in the site visited by this txn if any (will be in case of deadlock breaking)
+        vector<int> allReleaseLock = siteMap[x.first].dm->releaseLock(currentTxn->id);
+        std::set<int> s(allReleaseLock.begin(), allReleaseLock.end());
+        releasedVariable.insert(s.begin(), s.end());
         for (auto variable: x.second) {
             // Revert change by the current Txn back
             siteMap[x.first].dm->setDataRevert(variable);
-            // release all locks in the site visited by this txn if any (will be in case of deadlock breaking)
-            vector<int> allReleaseLock = siteMap[x.first].dm->releaseLock(currentTxn->id);
-            std::set<int> s(allReleaseLock.begin(), allReleaseLock.end());
-            releasedVariable.insert(s.begin(), s.end());
         }
     }
 

@@ -69,7 +69,7 @@ int main(int argc, const char *argv[]) {
 
         if (tm->deadlockMightOccur){
             tm->resolveDeadlock(time);
-            tm->deadlockMightOccur = false;
+//            tm->deadlockMightOccur = false;
         }
 
         OperationResult OptRes;
