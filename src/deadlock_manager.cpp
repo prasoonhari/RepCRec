@@ -20,6 +20,7 @@ vector<int> DeadLockManager::deadlockDetector(map<int, vector<int> > adjList) {
     for (auto item : visited) {
         if (item.second == 0) {
             stack<int> tracker;
+            tracker.push(item.first);
             vector<int> res = dfs(item.first, adjList, visited, tracker);
             if (res.size() > 0) return res;
         }
@@ -28,7 +29,7 @@ vector<int> DeadLockManager::deadlockDetector(map<int, vector<int> > adjList) {
     return vector<int>();
 }
 
-vector<int> dfs(int vertex, map<int, vector<int> > adjList, map<int, int > visited, stack<int> tracker) {
+vector<int> dfs(int vertex, map<int, vector<int> > &adjList, map<int, int > &visited, stack<int> &tracker) {
     visited[vertex] = -1;
 
     for (auto next : adjList[vertex]) {
@@ -44,7 +45,6 @@ vector<int> dfs(int vertex, map<int, vector<int> > adjList, map<int, int > visit
             tracker.push(next);
             vector<int> res = dfs(next, adjList, visited, tracker);
             if (res.size() > 0) return res;
-
         }
     }
 
