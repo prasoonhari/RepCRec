@@ -110,7 +110,7 @@ struct Transaction {
     std::map<int, std::vector<int>> dirtyData;
     // First time the site was accessed
     // TODO
-    std::map<int, int> siteAccessTime;
+    std::map<int, int> snapShot;
 
 };
 

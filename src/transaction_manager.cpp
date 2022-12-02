@@ -87,6 +87,22 @@ void TransactionManager::begin(Operation Op, int time) {
     transactions[txn.id] = txn;
 }
 
+map<int, int> TransactionManager::CreateSnapshot() {
+    map<int, int> snapshot;
+    for (auto varMap: variableMap) {
+        if (snapshot.find(varMap.first) == snapshot.end()) {
+            for (auto var_site: varMap.second) {
+                if (siteMap[var_site].status == SITE_STATUS::up) {
+                    snapshot[varMap.first] = siteMap[var_site].dm->readData(varMap.first);
+                }
+                break;
+            }
+        }
+    }
+
+    return snapshot;
+}
+
 void TransactionManager::beginRO(Operation Op, int time) {
     Transaction txn;
     txn.id = extractId(Op.vars[0]);
@@ -94,6 +110,7 @@ void TransactionManager::beginRO(Operation Op, int time) {
     txn.ReadOnly = true;
     txn.status = t_running;
     txn.dirtyData = {};
+    txn.snapShot = CreateSnapshot();
     transactions[txn.id] = txn;
 }
 
@@ -107,6 +124,59 @@ void TransactionManager::printDump() {
 OperationResult TransactionManager::readOperation(Operation Op, int time) {
     Transaction *currentTxn = getTransactionFromOperation(Op);
     return read(currentTxn, time);
+}
+
+bool TransactionManager::blockedByWaitlist(int variable_id, int txn_id) {
+    if (transactionWaitingForData.find(variable_id) != transactionWaitingForData.end() &&
+        transactionWaitingForData[variable_id][0] != txn_id) {
+
+
+        if (std::find(transactionWaitingForData[variable_id].begin(), transactionWaitingForData[variable_id].end(),
+                      txn_id) ==
+            transactionWaitingForData[variable_id].end()) {
+            transactionWaitingForData[variable_id].push_back(txn_id);
+            if (transactionDependency.find(txn_id) == transactionDependency.end()) {
+                transactionDependency[txn_id] = transactionWaitingForData[variable_id];
+            } else {
+//                transactionDependency[txn_id].insert(transactionDependency[txn_id].end(),
+//                                                     transactionWaitingForData[variable_id].begin(),
+//                                                     transactionWaitingForData[variable_id].end());
+                for (auto x: transactionWaitingForData[variable_id]) {
+                    transactionDependency[txn_id].push_back(x);
+                }
+            }
+            // TODO: Check Deadlock Here
+        }
+
+
+        return true;
+    }
+    return false;
+}
+
+bool TransactionManager::readCondition(int var_site, int variable_id) {
+    return siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
+                                                           (variableMap[variable_id].size() == 1 ||
+                                                            siteMap[var_site].dm->checkIfDataRecovered(
+                                                                    variable_id)));
+}
+
+
+OperationResult TransactionManager::readOnly(Transaction *currentTxn, int var_site, int variable_id) {
+    OperationResult OperRes;
+    TransactionResult txnRes = siteMap[var_site].dm->readRO(variable_id);
+    if (txnRes.status == RESULT_STATUS::success) {
+        if (currentTxn->dirtyData.find(var_site) == currentTxn->dirtyData.end()) {
+            // empty because it's a read data so won't get dirty
+            currentTxn->dirtyData[var_site] = {};
+        }
+        OperRes.status = RESULT_STATUS::success;
+        return OperRes;
+    } else {
+        OperRes.status = RESULT_STATUS::failure;
+        OperRes.msg = "Some thing went wrong while reading non replicated read only\n";
+        return OperRes;
+    }
 }
 
 OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
@@ -123,40 +193,76 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
     // If transaction is read-only
     if (currentTxn->ReadOnly) {
+        // non replicated data
+        if (variableMap[variable_id].size() == 1) {
+            int var_site = variableMap[variable_id][0];
+            if (siteMap[var_site].status == SITE_STATUS::up) {
+                if (currentTxn->snapShot.find(variable_id) != currentTxn->snapShot.end()) {
+                    cout << "T" << currentTxn->id << " reads x" + to_string(variable_id) + ": "
+                         << currentTxn->snapShot[variable_id] << "\n";
+                    OperRes.status = RESULT_STATUS::success;
+                    return OperRes;
+                } else {
+//                    return readOnly( currentTxn,  var_site,  variable_id);
+                }
+
+            }
+            currentTxn->status = T_STATUS::t_aborting;
+            OperRes.status = RESULT_STATUS::failure;
+            OperRes.msg = "No Site Available to Read x" + to_string(variable_id) + "\n";
+            return OperRes;
+        }
+            // For replicated data
+        else {
+            bool canReadFromOneSite = false;
+            for (auto var_site: variableMap[variable_id]) {
+
+
+                if (!siteMap[var_site].failedHistory.empty()) {
+                    int lastFailIndex = siteMap[var_site].failedHistory.size() - 1;
+                    int lastTimeThisSiteFailed = siteMap[var_site].failedHistory[lastFailIndex];
+                    int lastTimeThisVariableCommittedAtThisSite = siteMap[var_site].dm->getLastCommittedTime(
+                            variable_id);
+                    if (lastTimeThisVariableCommittedAtThisSite < currentTxn->startTime &&
+                        !(lastTimeThisSiteFailed > lastTimeThisVariableCommittedAtThisSite &&
+                          lastTimeThisSiteFailed < currentTxn->startTime)) {
+                        canReadFromOneSite = true;
+                        break;
+                    }
+                } else {
+                    canReadFromOneSite = true;
+                    break;
+                }
+
+            }
+
+            if (canReadFromOneSite) {
+                cout << "T" << currentTxn->id << " reads x" + to_string(variable_id) + ": "
+                     << currentTxn->snapShot[variable_id] << "\n";
+                OperRes.status = RESULT_STATUS::success;
+                return OperRes;
+            } else {
+                currentTxn->status = T_STATUS::t_aborting;
+                OperRes.status = RESULT_STATUS::failure;
+                OperRes.msg = "No Site Available to Read x" + to_string(variable_id) + "\n";
+                return OperRes;
+            }
+        }
 
     } else {
 
-        // Check if there is a wait list for this variable other than himself
-        if (transactionWaitingForData.find(variable_id) != transactionWaitingForData.end() &&
-            transactionWaitingForData[variable_id][0] != currentTxn->id) {
-
+        // Check if there is a wait list for this variable
+        // FIXME: Check if it is required to block in case if a write Txn is waiting on this variable
+        if (blockedByWaitlist(variable_id, currentTxn->id)) {
             OperRes.status = RESULT_STATUS::failure;
             currentTxn->status = T_STATUS::t_blocked;
-            OperRes.msg = "Not able to Read Now in waiting";
-            if (std::find(transactionWaitingForData[variable_id].begin(), transactionWaitingForData[variable_id].end(),
-                          currentTxn->id) ==
-                transactionWaitingForData[variable_id].end()) {
-                transactionWaitingForData[variable_id].push_back(currentTxn->id);
-                if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
-                    transactionDependency[currentTxn->id] = transactionWaitingForData[variable_id];
-                } else {
-                    transactionDependency[currentTxn->id].insert(transactionDependency[currentTxn->id].end(),
-                                                                 transactionWaitingForData[variable_id].begin(),
-                                                                 transactionWaitingForData[variable_id].end());
-                }
-                // TODO: Check Deadlock Here
-            }
-
-
+            OperRes.msg = "Blocked by queue - Not able to Read Now in waiting\n";
             return OperRes;
         }
 
         vector<int> readableSites;
         for (auto var_site: variableMap[variable_id]) {
-            if (siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
-                                                                (variableMap[variable_id].size() == 1 ||
-                                                                 siteMap[var_site].dm->checkIfDataRecovered(
-                                                                         variable_id)))) {
+            if (readCondition(var_site, variable_id)) {
                 readableSites.push_back(var_site);
             }
         }
@@ -171,10 +277,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
         // For all the sites that has this variable
         for (auto var_site: variableMap[variable_id]) {
             // If site is up or it is recovering and the data is ok to read
-            if (siteMap[var_site].status == SITE_STATUS::up || (siteMap[var_site].status == SITE_STATUS::recovering &&
-                                                                (variableMap[variable_id].size() == 1 ||
-                                                                 siteMap[var_site].dm->checkIfDataRecovered(
-                                                                         variable_id)))) {
+            if (readCondition(var_site, variable_id)) {
                 TransactionResult txnRes = siteMap[var_site].dm->read(variable_id, currentTxn);
 
                 if (txnRes.status == RESULT_STATUS::success) {
@@ -185,7 +288,6 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
                     OperRes.status = RESULT_STATUS::success;
                     return OperRes;
                 } else {
-
                     noteBlockingTransaction = {txnRes.blockingTransaction[0]};
                 }
             }
@@ -193,7 +295,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
         OperRes.status = RESULT_STATUS::failure;
         currentTxn->status = T_STATUS::t_blocked;
-        OperRes.msg = "Not able to Read Now in waiting";
+        OperRes.msg = "Not able to Read Now in waiting\n";
 
         if (transactionWaitingForData.find(variable_id) == transactionWaitingForData.end()) {
             transactionWaitingForData[variable_id] = {currentTxn->id};
@@ -297,9 +399,12 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
         if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
             transactionDependency[currentTxn->id] = {isWritePossibleRes.second};
         } else {
-            transactionDependency[currentTxn->id].insert(transactionWaitingForData[currentTxn->id].end(),
-                                                         isWritePossibleRes.second.begin(),
-                                                         isWritePossibleRes.second.end());
+//            transactionDependency[currentTxn->id].insert(transactionWaitingForData[currentTxn->id].end(),
+//                                                         isWritePossibleRes.second.begin(),
+//                                                         isWritePossibleRes.second.end());
+            for (auto x: isWritePossibleRes.second) {
+                transactionDependency[currentTxn->id].push_back(x);
+            }
         }
         return OperRes;
     }
@@ -329,9 +434,10 @@ void TransactionManager::tryExecutionAgain(vector<int> txns, int time) {
             transactions[txn].status = T_STATUS::t_running;
             if (transactions[txn].currentInstruction.type == INST_TYPE::Read) {
                 OperationResult operRes = read(&transactions[txn], time);
-                cout << operRes.msg << "\n";
+                cout << operRes.msg;
             } else if (transactions[txn].currentInstruction.type == INST_TYPE::Write) {
-                write(&transactions[txn], time);
+                OperationResult operRes = write(&transactions[txn], time);
+                cout << operRes.msg;
             }
         }
     }

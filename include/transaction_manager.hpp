@@ -76,6 +76,14 @@ public:
     OperationResult readOperation(Operation Op, int time);
 
     void recoverSite(Operation Op, int time);
+
+    bool blockedByWaitlist(int variable_id, int txn_id);
+
+    bool readCondition(int var_site, int variable_id);
+
+    OperationResult readOnly(Transaction *currentTxn, int var_site, int variable_id);
+
+    std::map<int, int> CreateSnapshot();
 };
 
 #endif

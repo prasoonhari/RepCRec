@@ -61,6 +61,20 @@ bool DataManager::checkWriteLockCondition(LockDetail varLockDetail, int txn_Id) 
             varLockDetail.currentHolderMap.find(txn_Id) != varLockDetail.currentHolderMap.end());
 }
 
+int DataManager::getLastCommittedTime(int variable){
+    return data[variable].lastCommitTime;
+}
+
+int DataManager::readData(int variable) {
+    return data[variable].committedValue;
+}
+
+TransactionResult DataManager::readRO(int variable) {
+    TransactionResult txnRes;
+    txnRes.status = RESULT_STATUS::success;
+    cout << "x" + to_string(variable) + ": " + to_string(data[variable].committedValue) << "\n";
+    return txnRes;
+}
 
 TransactionResult DataManager::read(int variable, Transaction *txn) {
     TransactionResult txnRes;
@@ -77,7 +91,21 @@ TransactionResult DataManager::read(int variable, Transaction *txn) {
             } else {
                 txn_locked_variables[txn->id].push_back(variable);
             }
-            cout << "x" + to_string(variable) + ": " + to_string(data[variable].committedValue) << "\n";
+
+            bool hasThisTransactionWrittenThisData = false;
+            if (txn->dirtyData.find(site_id) != txn->dirtyData.end()){
+                for (auto x : txn->dirtyData[site_id]){
+                    if (x == variable){
+                        hasThisTransactionWrittenThisData = true;
+                    }
+                }
+            }
+            if (hasThisTransactionWrittenThisData){
+                cout << "Transaction T" << txn->id << " read "<< "x" + to_string(variable) + ": " + to_string(data[variable].currentValue) << "  from site" << site_id << "\n";
+
+            }else{
+                cout << "Transaction T" << txn->id << " read "<< "x" + to_string(variable) + ": " + to_string(data[variable].committedValue) << "  from site" << site_id << "\n";
+            }
         }
     } else {
         txnRes.status = RESULT_STATUS::failure;

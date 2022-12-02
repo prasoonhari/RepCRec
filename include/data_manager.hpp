@@ -45,7 +45,6 @@ public:
 
     std::pair<int, std::vector<int>> writeCheck(int variable, Transaction *txn);
 
-    int readRO(int variable, Transaction txn);
 
     bool checkIfDataRecovered(int variable);
 
@@ -80,6 +79,10 @@ public:
 
     // at time of recovery all data is dirty as the site was down
     void setAllDataDirty();
+
+    TransactionResult readRO(int variable);
+
+    int readData(int variable);
 };
 
 #endif
