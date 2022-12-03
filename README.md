@@ -1,3 +1,6 @@
+A distributed database, complete with multiversion concurrency control, deadlock detection, replication, and failure recovery.
+
+
 # ReproZip
 
 ./reprozip trace scripts/test.sh inputs outputs bin/main
