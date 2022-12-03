@@ -1,4 +1,4 @@
-
+#include <algorithm>
 #include <iostream>
 #include "data_manager.hpp"
 #include "lock_manager.hpp"
