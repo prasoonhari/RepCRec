@@ -7,20 +7,58 @@
 
 #include "common.hpp"
 
+/**
+ * @brief The Lock Manager helps in managing the instances of locks on sites.
+ * 
+ */
 class LockManager
 {
 private:
-    // lock detail on each variable. variable -> lock details
+
+    /**
+     * @brief Holds lock details for each variable
+     * LockDetails holds the type of lock the variable has and the transactions
+     * that hold the variable
+     */
     std::map<int, LockDetail> lock_table;
+    
     int lm_id;
 
 public:
     explicit LockManager(int _lm_id);
+
+    /**
+     * @brief resets the lock table in case of site failure
+     * 
+     */
     void reset();
+
+    /**
+     * @brief initializes the lock for each variable when a site is
+     * initialized or recovers
+     * 
+     * @param variable 
+     */
     void initializeLock(int variable);
-    // acquires the read lock for a txn if all condition are satisfied
+
+    /**
+     * @brief acquires the read lock for a txn if all condition are satisfied
+     * 
+     * @param variable 
+     * @param transaction_id 
+     * @return true if the lock is acquired, false otherwise
+     */
+ 
     bool acquireReadLock(int variable, int transaction_id);
-    // acquires  write lock for a txn if all condition are satisfied for the given variable(data)
+
+    /**
+     * @brief acquires write lock for a txn if all condition are satisfied for the given variable(data)
+     * 
+     * @param variable 
+     * @param transaction_id 
+     * @return true if the lock is acquired, false otherwise
+     */
+    // 
     bool acquireWriteLock(int variable, int transaction_id);
 
 
@@ -32,7 +70,14 @@ public:
     // Returns the lock detail of a particular variable
     LockDetail getLockDetail(int variable);
 
-    // Removes the lock that a particular transaction holds, if no one holds the lock after removal, then its reset
+    /**
+     * @brief Removes the lock that a particular transaction holds, 
+     * if no one holds the lock after removal, then it resets
+     * 
+     * @param variable 
+     * @param transaction_id 
+     * @return true if removed successfully, false otherwise
+     */
     bool removeLock(int variable, int transaction_id);
 
     // Print the lock table data
