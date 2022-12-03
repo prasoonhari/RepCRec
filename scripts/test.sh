@@ -4,7 +4,7 @@ INDIR=$1
 OUTDIR=$2
 PROG=$3
 
-INPUTS=`seq 1 26`
+INPUTS=`seq 1 27`
 
 
 for I in ${INPUTS}; do

@@ -124,3 +124,6 @@
 ### Test 26
 - All Transactions get committed
 - T1 waits initially, but gets committed eventually
+
+### Test 27
+- T1 reads the variable after writing it, so it will read its own changed value
