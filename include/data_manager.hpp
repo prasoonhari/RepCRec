@@ -10,7 +10,11 @@
 #include "lock_manager.hpp"
 #include "common.hpp"
 
-
+/**
+ * @brief 
+ * If a site fails and recovers, Then Data manager(DM) would normally decide which in-flight transactions to commit by asking the TM about transactions that the DM holds pre-committed but not yet committed. 
+ * The DM updates the variable values and manages locks for the particular sites.
+ */
 class DataManager {
 private:
     int site_id;

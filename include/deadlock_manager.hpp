@@ -7,6 +7,10 @@
 
 #include "common.hpp"
 
+/**
+ * @brief Helper Class to detect cycle at a site.
+ * 
+ */
 class DeadLockManager {
 private:
 

@@ -18,7 +18,14 @@ struct SiteDetail {
     std::vector<int> failedHistory;
 };
 
-
+/**
+ * @brief 
+ * All operation pertaining to the database is executed by the 
+ * Transaction manager (TM). 
+ * While performing any operation for transaction T, 
+ * the TM uses the Available copies strategy and if it fails to complete the operation (whether waiting for a lock to be released or a failure to be cleared) then it must put the corresponding T in a wait queue and check to resolve it in the next tick. It also checks for deadlocks. The TM also fulfills the role of a broker which routes requests and knows the up/down status of each site.
+ * 
+ */
 class TransactionManager {
 private:
     // all the transaction details - All Txn that we receive is stored

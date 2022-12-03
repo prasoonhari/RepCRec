@@ -7,6 +7,10 @@
 
 #include "common.hpp"
 
+/**
+ * @brief The Lock Manager help in managing the instances of locks on different sites.
+ * 
+ */
 class LockManager
 {
 private:
