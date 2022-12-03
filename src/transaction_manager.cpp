@@ -356,6 +356,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
                     int readValue = siteMap[var_site].dm->readData(variable_id);
                     cout << "T" << currentTxn->id << " reads x" + to_string(variable_id) + ": "
                          << readValue << "\n";
+                    currentTxn->status = T_STATUS::t_running;
                     OperRes.status = RESULT_STATUS::success;
                     return OperRes;
                 } else {
