@@ -16,7 +16,13 @@ private:
 
 public:
     DeadLockManager();
-    // Method that takes adjList and returns nodes present in a cycle, if no cycle is present - returns empty vector
+
+    /**
+     * @brief Method that takes adjList and returns nodes present in a cycle
+     * 
+     * @param adjList 
+     * @return std::vector<int> , empty if no cycle
+     */
     std::vector<int> deadlockDetector(std::map<int, std::vector<int>> adjList);
 };
 
