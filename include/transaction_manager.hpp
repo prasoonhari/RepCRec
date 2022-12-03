@@ -94,6 +94,10 @@ public:
     void resolveDeadlock(int time);
 
     void ProcessTransactionWaitingForSite(Transaction *currentTxn, int variable_id);
+
+    void removeTransactionFromDependencyList(Transaction *t);
+
+    void omitTransaction(Transaction *txn);
 };
 
 #endif

@@ -34,7 +34,7 @@ public:
     //the variables that are not committed after recovering - So these can be written by not read in case of replicated data
     std::set<int> unclean_data_on_site;
 
-    DataManager(int _site_id);
+    explicit DataManager(int _site_id);
 
     void initializeLockTable();
 
@@ -50,13 +50,13 @@ public:
 
     int getLastCommittedTime(int variable);
 
-    int getReadLockStatus(int variable, Transaction txn);
-
-    int getWriteLockStatus(int variable, Transaction txn);
+//    int getReadLockStatus(int variable, Transaction txn);
+//
+//    int getWriteLockStatus(int variable, Transaction txn);
 
     TransactionResult write(int variable, Transaction *txn, int change_time);
     // commits the data by copying the current value into committed value - Done when committing a Txn
-    void setDataCommit(int variable, int commit_time);
+    bool setDataCommit(int variable, int commit_time);
     // Set the current value - Done when a Txn writes (will get committed later if)
     void setDataTemp(int variable, int value);
 

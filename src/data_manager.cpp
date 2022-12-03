@@ -26,7 +26,7 @@ void DataManager::setAllDataDirty() {
     }
 }
 
-void DataManager::setDataCommit(int variable, int commit_time) {
+bool DataManager::setDataCommit(int variable, int commit_time) {
     data[variable].committedValue = data[variable].currentValue;
     data[variable].lastCommitTime = commit_time;
 
@@ -34,7 +34,11 @@ void DataManager::setDataCommit(int variable, int commit_time) {
     // INFO: Note that this will be only in case when site is recovering
     if (unclean_data_on_site.find(variable) != unclean_data_on_site.end()){
         unclean_data_on_site.erase(variable);
+        // TODO: Now this will make a site available for read, so we can evoke transactions waiting for this site
+        return true;
     }
+
+    return false;
 }
 
 void DataManager::setDataRevert(int variable) {
