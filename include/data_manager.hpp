@@ -32,10 +32,10 @@ public:
     /**
  * Compute mean and standard deviation for a collection of data.
  *
- * @param[out] mean the mean of `data`, or `NaN` if `data` is empty
- * @param[out] stdDev the unbiased (sample) standard deviation, or `NaN`
+ * @param mean the mean of `data`, or `NaN` if `data` is empty
+ * @param stdDev the unbiased (sample) standard deviation, or `NaN`
  *     if `data` contains fewer than 2 elements
- * @param[in] data the data to analyze
+ * @return data the data to analyze
  */
     std::map<int, std::vector<int>> txn_locked_variables;
 
