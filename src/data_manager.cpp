@@ -93,7 +93,12 @@ TransactionResult DataManager::read(int variable, Transaction *txn) {
             if (txn_locked_variables.find(txn->id) == txn_locked_variables.end()) {
                 txn_locked_variables[txn->id] = {variable};
             } else {
-                txn_locked_variables[txn->id].push_back(variable);
+                if(std::find(txn_locked_variables[txn->id].begin(), txn_locked_variables[txn->id].end(),
+                             variable) ==
+                        txn_locked_variables[txn->id].end()) {
+                    txn_locked_variables[txn->id].push_back(variable);
+
+                }
             }
 
             bool hasThisTransactionWrittenThisData = false;
@@ -151,7 +156,12 @@ TransactionResult DataManager::write(int variable, Transaction *txn, int change_
             if (txn_locked_variables.find(txn->id) == txn_locked_variables.end()) {
                 txn_locked_variables[txn->id] = {variable};
             } else {
-                txn_locked_variables[txn->id].push_back(variable);
+                if(std::find(txn_locked_variables[txn->id].begin(), txn_locked_variables[txn->id].end(),
+                             variable) ==
+                   txn_locked_variables[txn->id].end()) {
+                    txn_locked_variables[txn->id].push_back(variable);
+
+                }
             }
 //            cout << "T" <<txn->id << " is temporarily writing x" << variable << " in site" << site_id << " \n";
             setDataTemp(variable, txn->currentInstruction.values[1]);
@@ -170,13 +180,27 @@ bool DataManager::checkIfDataRecovered(int variable) {
     return unclean_data_on_site.find(variable) == unclean_data_on_site.end();
 }
 
+//void DataManager::printDM() {
+//    cout << "Data Printing for site" << site_id << " Starts \n";
+//    for (auto itt = data.begin(); itt != data.end(); itt++) {
+//        cout << "x" << itt->first << ": " << itt->second.committedValue << ", tempVal = " << itt->second.currentValue
+//             << ", last commit time = " << itt->second.lastCommitTime << " \n";
+//    }
+//    cout << "Data Printing for site " << site_id << " Ends \n";
+//    cout << "\n";
+//}
+
 void DataManager::printDM() {
-    cout << "Data Printing for site" << site_id << " Starts \n";
-    for (auto itt = data.begin(); itt != data.end(); itt++) {
-        cout << "x" << itt->first << ": " << itt->second.committedValue << ", tempVal = " << itt->second.currentValue
-             << ", last commit time = " << itt->second.lastCommitTime << " \n";
+    cout << "site " << site_id << "- ";
+    int n = data.size();
+    int i = 0;
+    for (auto & itt : data) {
+        cout << "x" << itt.first << ": " << itt.second.committedValue;
+        if (i != n-1){
+            cout << ", ";
+        }
+        i++;
     }
-    cout << "Data Printing for site " << site_id << " Ends \n";
     cout << "\n";
 }
 

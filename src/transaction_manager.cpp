@@ -129,8 +129,42 @@ void TransactionManager::begin(Operation Op, int time) {
     transactions[txn.id] = txn;
 }
 
-map<int, int> TransactionManager::CreateSnapshot() {
+map<int, int> TransactionManager::CreateSnapshot(int time) {
     map<int, int> snapshot;
+
+    for (auto varMap: variableMap) {
+        if (varMap.second.size() == 1){
+            int var_site = varMap.second[0];
+            if(readCondition(var_site, varMap.first)){
+                snapshot[varMap.first] = siteMap[var_site].dm->readData(varMap.first);
+            }
+        } else{
+            int variable_id = varMap.first;
+            bool canReadFromOneSite = false;
+            for (auto var_site: variableMap[variable_id]) {
+                if (!siteMap[var_site].failedHistory.empty()) {
+                    int lastTimeThisVariableCommittedAtThisSite = siteMap[var_site].dm->getLastCommittedTime(
+                            variable_id);
+                    for (auto  timeThisSiteFailed : siteMap[var_site].failedHistory){
+                        if (lastTimeThisVariableCommittedAtThisSite < time &&
+                            !(timeThisSiteFailed > lastTimeThisVariableCommittedAtThisSite &&
+                                    timeThisSiteFailed < time)) {
+                            snapshot[variable_id] = siteMap[var_site].dm->readData(variable_id);
+                            canReadFromOneSite = true;
+                            break;
+                        }
+                    }
+                } else {
+                    snapshot[variable_id] = siteMap[var_site].dm->readData(variable_id);
+                    canReadFromOneSite = true;
+                    break;
+                }
+            }
+        }
+    }
+
+
+
     for (const auto &varMap: variableMap) {
         if (snapshot.find(varMap.first) == snapshot.end()) {
             for (auto var_site: varMap.second) {
@@ -152,7 +186,7 @@ void TransactionManager::beginRO(Operation Op, int time) {
     txn.ReadOnly = true;
     txn.status = t_running;
     txn.dirtyData = {};
-    txn.snapShot = CreateSnapshot();
+    txn.snapShot = CreateSnapshot(0);
     transactions[txn.id] = txn;
 }
 
@@ -190,7 +224,7 @@ OperationResult TransactionManager::readOnly(Transaction *currentTxn, int variab
 //                    return readOnly( currentTxn,  var_site,  variable_id);
         currentTxn->status = T_STATUS::t_aborting;
         OperRes.status = RESULT_STATUS::failure;
-        OperRes.msg = "No site was up since a transaction commits x" + to_string(variable_id) + "\n";
+        OperRes.msg = "No site was up at the beginning of the transaction to have a committed value x" + to_string(variable_id) + "\n";
         return OperRes;
     }
 }
@@ -288,7 +322,11 @@ void TransactionManager::ProcessTransactionWaitingForSite(Transaction *currentTx
         if (transactionWaitingForSite.find(var_site) == transactionWaitingForSite.end()) {
             transactionWaitingForSite[var_site] = {currentTxn->id};
         } else {
-            transactionWaitingForSite[var_site].push_back(currentTxn->id);
+            if(std::find(transactionWaitingForSite[var_site].begin(), transactionWaitingForSite[var_site].end(),
+                         currentTxn->id) ==
+                    transactionWaitingForSite[var_site].end()){
+                transactionWaitingForSite[var_site].push_back(currentTxn->id);
+            }
         }
     }
 }
@@ -308,48 +346,8 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
     // If transaction is read-only
     if (currentTxn->ReadOnly) {
-        // non replicated data
-        if (variableMap[variable_id].size() == 1) {
-            int var_site = variableMap[variable_id][0];
-//            if (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering) {
-//                return readOnly(currentTxn, variable_id);
-//            }
-            return readOnly(currentTxn, variable_id);
-//            currentTxn->status = T_STATUS::t_aborting;
-//            OperRes.status = RESULT_STATUS::failure;
-//            OperRes.msg = "No Site Available to Read x" + to_string(variable_id) + "\n";
-//            return OperRes;
-        }
-            // For replicated data
-        else {
-            bool canReadFromOneSite = false;
-            for (auto var_site: variableMap[variable_id]) {
-                if (!siteMap[var_site].failedHistory.empty()) {
-                    int lastFailIndex = (int) siteMap[var_site].failedHistory.size() - 1;
-                    int lastTimeThisSiteFailed = siteMap[var_site].failedHistory[lastFailIndex];
-                    int lastTimeThisVariableCommittedAtThisSite = siteMap[var_site].dm->getLastCommittedTime(
-                            variable_id);
-                    if (lastTimeThisVariableCommittedAtThisSite < currentTxn->startTime &&
-                        !(lastTimeThisSiteFailed > lastTimeThisVariableCommittedAtThisSite &&
-                          lastTimeThisSiteFailed < currentTxn->startTime)) {
-                        canReadFromOneSite = true;
-                        break;
-                    }
-                } else {
-                    canReadFromOneSite = true;
-                    break;
-                }
-            }
 
-            if (canReadFromOneSite) {
-                return readOnly(currentTxn, variable_id);
-            } else {
-                currentTxn->status = T_STATUS::t_aborting;
-                OperRes.status = RESULT_STATUS::failure;
-                OperRes.msg = "No Site was available when this transaction began" + to_string(variable_id) + "\n";
-                return OperRes;
-            }
-        }
+        return readOnly(currentTxn, variable_id);
 
     } else {
 
@@ -362,7 +360,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
             return OperRes;
         }
 
-        vector<int> readableSites;
+        vector<int> readableSites = {};
         for (auto var_site: variableMap[variable_id]) {
             if (readCondition(var_site, variable_id)) {
                 readableSites.push_back(var_site);
@@ -456,7 +454,7 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
         return OperRes;
     }
 
-    vector<int> UpdatableSites;
+    vector<int> UpdatableSites = {};
     for (auto var_site: variableMap[variable_id]) {
         if (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering) {
             UpdatableSites.push_back(var_site);
@@ -484,7 +482,12 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
                     // empty because it's a read data so won't get dirty
                     currentTxn->dirtyData[var_site] = {variable_id};
                 } else {
-                    currentTxn->dirtyData[var_site].push_back(variable_id);
+                    if (std::find(currentTxn->dirtyData[var_site].begin(), currentTxn->dirtyData[var_site].end(),
+                                  variable_id) ==
+                            currentTxn->dirtyData[var_site].end()){
+                        currentTxn->dirtyData[var_site].push_back(variable_id);
+
+                    }
                 }
 
                 successfulWriteSite.push_back(var_site);

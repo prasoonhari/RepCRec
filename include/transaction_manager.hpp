@@ -89,7 +89,7 @@ public:
 
     static OperationResult readOnly(Transaction *currentTxn, int variable_id);
 
-    std::map<int, int> CreateSnapshot();
+    std::map<int, int> CreateSnapshot(int time);
 
     void resolveDeadlock(int time);
 
