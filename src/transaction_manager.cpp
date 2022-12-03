@@ -75,7 +75,7 @@ void TransactionManager::resolveDeadlock(int time) {
             latestTime = max(latestTime, transactions[txn].startTime);
         }
     }
-
+    cout << "Detected Deadlock\n";
     removeTransactionFromDependencyList(youngestTxn);
 
     youngestTxn->status = T_STATUS::t_aborting;
@@ -120,6 +120,7 @@ Transaction *TransactionManager::getTransactionFromOperation(Operation Op) {
 
 
 void TransactionManager::begin(Operation Op, int time) {
+
     Transaction txn;
     txn.id = extractId(Op.vars[0]);
     txn.startTime = time;
@@ -127,6 +128,7 @@ void TransactionManager::begin(Operation Op, int time) {
     txn.status = t_running;
     txn.dirtyData = {};
     transactions[txn.id] = txn;
+    cout << "Transaction T" << txn.id << " began\n";
 }
 
 map<int, int> TransactionManager::CreateSnapshot(int time) {
@@ -188,6 +190,7 @@ void TransactionManager::beginRO(Operation Op, int time) {
     txn.dirtyData = {};
     txn.snapShot = CreateSnapshot(0);
     transactions[txn.id] = txn;
+    cout << "RO Transaction T" << txn.id << " began\n";
 }
 
 void TransactionManager::printDump() {
@@ -224,7 +227,7 @@ OperationResult TransactionManager::readOnly(Transaction *currentTxn, int variab
 //                    return readOnly( currentTxn,  var_site,  variable_id);
         currentTxn->status = T_STATUS::t_aborting;
         OperRes.status = RESULT_STATUS::failure;
-        OperRes.msg = "No site was up at the beginning of the transaction to have a committed value x" + to_string(variable_id) + "\n";
+        OperRes.msg = "Read Fail - No site was up at the beginning of the transaction to have a committed value x" + to_string(variable_id) + "\n";
         return OperRes;
     }
 }
@@ -346,9 +349,21 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
     // If transaction is read-only
     if (currentTxn->ReadOnly) {
-
-        return readOnly(currentTxn, variable_id);
-
+        if(variableMap[variable_id].size() == 1){
+            int var_site = variableMap[variable_id][0];
+            OperationResult OperResSnapshot = readOnly(currentTxn, variable_id);
+                if(OperResSnapshot.status == RESULT_STATUS::failure && (siteMap[var_site].status == SITE_STATUS::up || siteMap[var_site].status == SITE_STATUS::recovering)){
+                    int readValue = siteMap[var_site].dm->readData(variable_id);
+                    cout << "T" << currentTxn->id << " reads x" + to_string(variable_id) + ": "
+                         << readValue << "\n";
+                    OperRes.status = RESULT_STATUS::success;
+                    return OperRes;
+                } else {
+                    return OperResSnapshot;
+                }
+        } else{
+            return readOnly(currentTxn, variable_id);
+        }
     } else {
 
         // Check if there is a wait list for this variable
@@ -356,7 +371,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
         if (blockedByWaitlist(variable_id, currentTxn->id)) {
             OperRes.status = RESULT_STATUS::failure;
             currentTxn->status = T_STATUS::t_blocked;
-            OperRes.msg = "Blocked by queue - Not able to Read Now in waiting\n";
+            OperRes.msg = "Transaction T" + to_string(currentTxn->id) +" Blocked by queue - Not able to Read Now in waiting\n";
             return OperRes;
         }
 
@@ -397,7 +412,7 @@ OperationResult TransactionManager::read(Transaction *currentTxn, int time) {
 
         OperRes.status = RESULT_STATUS::failure;
         currentTxn->status = T_STATUS::t_blocked;
-        OperRes.msg = "Transaction T" + to_string(currentTxn->id) + " is blocked -Not able to Read " +
+        OperRes.msg = "Transaction T" + to_string(currentTxn->id) + " is blocked -Not able to Read x" +
                       to_string(variable_id) + "- is waiting now\n";
         processBlockingTransaction(currentTxn, variable_id, {noteBlockingTransaction});
 
@@ -450,7 +465,7 @@ OperationResult TransactionManager::write(Transaction *currentTxn, int time) {
     if (blockedByWaitlist(variable_id, currentTxn->id)) {
         OperRes.status = RESULT_STATUS::failure;
         currentTxn->status = T_STATUS::t_blocked;
-        OperRes.msg = "Blocked by queue - Not able to write Now in waiting\n";
+        OperRes.msg = "Transaction T" + to_string(currentTxn->id) +" Blocked by queue - Not able to write Now in waiting\n";
         return OperRes;
     }
 
@@ -541,6 +556,7 @@ void TransactionManager::endTransaction(Operation Op, int time) {
 void TransactionManager::tryExecutionAgain(const vector<int> &txns, int time) {
     bool somethingChanged = false;
     for (auto txn: txns) {
+//        cout << "Trying Execution For T" << to_string(txn) << "\n";
         if (transactions[txn].status == T_STATUS::t_blocked || transactions[txn].status == T_STATUS::t_waiting) {
             transactions[txn].status = T_STATUS::t_running;
             if (transactions[txn].currentInstruction.type == INST_TYPE::Read) {

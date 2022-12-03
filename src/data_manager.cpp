@@ -213,6 +213,7 @@ void DataManager::printLM() {
 }
 
 void DataManager::failThisSite() {
+    cout << "Failing Site " <<site_id<< "\n";
     lm->reset();
     // TODO : Think about this .. should this be cleared
 //    txn_locked_variables.clear();
@@ -221,6 +222,7 @@ void DataManager::failThisSite() {
 }
 
 void DataManager::recoverThisSite() {
+    cout << "Recovering Site " <<site_id<< "\n";
     initializeLockTable();
     setAllDataDirty();
 }
