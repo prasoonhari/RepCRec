@@ -111,3 +111,16 @@
 - So W(T2,x8,88) will not commit and is lost on failure.
 - Even though site 2 recovers before T2, T2 will not retroactively write to the site (in any practical version of available copies).
 - T2 aborts because it wrote to x8.
+
+### Test 24
+- All Transactions get committed
+- T3,T4 get blocked
+
+### Test 25
+- T1 gets aborted
+- T2 has to wait, but eventually is committed
+- T3,T5 are committed
+
+### Test 26
+- All Transactions get committed
+- T1 waits initially, but gets committed eventually
