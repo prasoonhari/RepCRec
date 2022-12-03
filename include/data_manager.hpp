@@ -29,6 +29,14 @@ public:
     // make modification to data if commit else make it same as last committed value if aborting
     // DONE: remove items from it when committed or aborted
     // This is used to remove locks that the aborted or committed Txn holds
+    /**
+ * Compute mean and standard deviation for a collection of data.
+ *
+ * @param[out] mean the mean of `data`, or `NaN` if `data` is empty
+ * @param[out] stdDev the unbiased (sample) standard deviation, or `NaN`
+ *     if `data` contains fewer than 2 elements
+ * @param[in] data the data to analyze
+ */
     std::map<int, std::vector<int>> txn_locked_variables;
 
     //the variables that are not committed after recovering - So these can be written by not read in case of replicated data
