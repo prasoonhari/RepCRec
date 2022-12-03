@@ -201,7 +201,11 @@ void TransactionManager::processBlockingTransaction(Transaction *currentTxn, int
     if (transactionWaitingForData.find(variable_id) == transactionWaitingForData.end()) {
         transactionWaitingForData[variable_id] = {currentTxn->id};
     } else {
-        transactionWaitingForData[variable_id].push_back(currentTxn->id);
+        if (std::find(transactionWaitingForData[variable_id].begin(), transactionWaitingForData[variable_id].end(),
+                      currentTxn->id) ==
+            transactionWaitingForData[variable_id].end()){
+            transactionWaitingForData[variable_id].push_back(currentTxn->id);
+        }
     }
     if (transactionDependency.find(currentTxn->id) == transactionDependency.end()) {
         transactionDependency[currentTxn->id] = {};
@@ -211,6 +215,7 @@ void TransactionManager::processBlockingTransaction(Transaction *currentTxn, int
             }
         }
     } else {
+        transactionDependency.erase(currentTxn->id);
         for (auto blkTxn: blockingTxns) {
             if (blkTxn != currentTxn->id) {
                 transactionDependency[currentTxn->id].push_back(blkTxn);
@@ -238,7 +243,7 @@ bool TransactionManager::blockedByWaitlist(int variable_id, int txn_id) {
             if (transactionDependency.find(txn_id) == transactionDependency.end()) {
                 transactionDependency[txn_id] = transactionWaitingForData[variable_id];
             } else {
-
+                transactionDependency.erase(txn_id);
                 for (auto x: transactionWaitingForData[variable_id]) {
                     // IF txn is in the line again then it should just wait for variable in front of it.
                     if (x == txn_id) {
@@ -260,7 +265,7 @@ bool TransactionManager::blockedByWaitlist(int variable_id, int txn_id) {
                     }
                 }
             } else {
-
+                transactionDependency.erase(txn_id);
                 for (auto x: transactionWaitingForData[variable_id]) {
                     // IF txn is in the line again then it should just wait for variable in front of it.
                     if (x == txn_id) {
